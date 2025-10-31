@@ -1,0 +1,47 @@
+(* Non-terminals (非终结符) *)
+Program          ::= { Statement } .
+
+Statement        ::= Assignment
+                   | IfStatement
+                   | ForStatement
+                   | Block
+                   ;
+
+Block            ::= "{" { Statement } "}" .
+Assignment       ::= Identifier "=" Expression ";" .
+
+(* 极简 If 语句：删除圆括号，遵循 Go 语言风格 *)
+IfStatement      ::= "if" Expression Block [ "else" Statement ] .
+
+
+(* 极简 For 循环：删除圆括号，遵循 Go 语言风格 *)
+ForStatement     ::= "for"
+                     ( Expression Block                                       (* while 风格: for condition *)
+                     | [ Assignment ] ";" Expression ";" [ Assignment ] Block (* c 风格: for init; condition; post *)
+                     )
+                     .
+
+
+(*
+ * 表达式定义 (保持不变)
+ *)
+
+(* 1. Expression: 最低优先级 *)
+Expression       ::= Term { ( "+" | "-"
+                          | "<" | "<=" | ">" | ">="
+                          | "==" | "!="
+                          | "&&" | "||" ) Term } .
+
+(* 2. Term: 中等优先级 *)
+Term             ::= Factor { ( "*" | "/" | "%"
+                          | "<<" | ">>"
+                          | "&" | "|" | "^" ) Factor } .
+
+(* 3. Factor: 最高优先级 *)
+Factor           ::= Number
+                   | Identifier
+                   | "true"
+                   | "false"
+                   | "(" Expression ")"  (* 只有这里使用括号来强制优先级 *)
+                   | [ "-" ] Factor
+                   .
