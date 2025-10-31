@@ -2,7 +2,9 @@
 Program          ::= { Statement } .
 
 (* 语句：程序执行的最小单元 *)
-Statement        ::= Assignment
+Statement        ::= FunctionDefinition  (* 新增：函数定义 *)
+                   | Assignment
+                   | ReturnStatement     (* 新增：返回语句 *)
                    | IfStatement
                    | ForStatement
                    | Block
@@ -16,6 +18,13 @@ Assignment       ::= LValue "=" Expression ";" .
 
 (* 变量或列表元素，可作为赋值左侧的目标 *)
 LValue           ::= Identifier { "[" Expression "]" } .
+
+(* 函数定义：延续 Go-Style，强制使用 Block，使用 'fun' 关键字 *)
+FunctionDefinition ::= "fun" Identifier "(" [ Identifier { "," Identifier } ] ")" Block .
+
+(* 返回语句：可带或不带返回值 *)
+ReturnStatement  ::= "return" [ Expression ] ";" .
+
 
 (* 
  * 控制流结构 (If/For)
@@ -58,10 +67,14 @@ Primary          ::= Number
                    | "false"
                    | "(" Expression ")"  (* 括号强制提高 Expression 的优先级 *)
                    | Identifier
+                   | FunctionCall        (* 新增：函数调用 *)
                    .
 
 (* 辅助规则：列表字面量 *)
 ListLiteral      ::= "[" [ Expression { "," Expression } ] "]" .
+
+(* 辅助规则：函数调用 *)
+FunctionCall     ::= Identifier "(" [ Expression { "," Expression } ] ")" .
 
 
 (* --- 终结符 (Terminal Symbols) 列表 --- *)
@@ -69,5 +82,5 @@ ListLiteral      ::= "[" [ Expression { "," Expression } ] "]" .
    Identifier, Number, ";", "=", "+", "-", "*", "/", "%", 
    "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
    "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
-   "if", "else", "for", "{" , "}"
+   "if", "else", "for", "{" , "}" , "fun" , "return"
 *)
