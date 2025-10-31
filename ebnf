@@ -32,10 +32,10 @@ ReturnStatement  ::= "return" [ Expression ] ";" .
  *)
 IfStatement      ::= "if" Expression Block [ "else" Statement ] .
 
+(* For 循环精简为两种形式：Condition-Style (While) 和 Collection-Style (Foreach) *)
 ForStatement     ::= "for"
                      ( Expression                                       (* while 风格: for condition *)
-                     | [ Assignment ] ";" Expression ";" [ Assignment ] (* c 风格: for init; condition; post *)
-                     | Identifier "in" Expression                       (* 新增：集合迭代风格: for identifier in expression *)
+                     | Identifier "in" Expression                       (* 集合迭代风格: for identifier in expression *)
                      ) Block
                      .
 
@@ -74,7 +74,7 @@ Primary          ::= Number
 (* 辅助规则：列表字面量 *)
 ListLiteral      ::= "[" [ Expression { "," Expression } ] "]" .
 
-(* 辅助规则：函数调用 *)
+(* 规则：函数调用 *)
 FunctionCall     ::= Identifier "(" [ Expression { "," Expression } ] ")" .
 
 
@@ -83,5 +83,5 @@ FunctionCall     ::= Identifier "(" [ Expression { "," Expression } ] ")" .
    Identifier, Number, ";", "=", "+", "-", "*", "/", "%", 
    "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
    "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
-   "if", "else", "for", "{" , "}" , "fun" , "return" , "in" (*新增 in*)
+   "if", "else", "for", "{" , "}" , "fun" , "return" , "in" 
 *)
