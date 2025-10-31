@@ -7,7 +7,7 @@ Statement        ::= FunctionDefinition
                    | ReturnStatement
                    | IfStatement
                    | ForStatement
-                   | Block
+                   (* REMOVED: Block -- 独立代码块不再作为Statement，以避免不必要的局部作用域 *)
                    ;
 
 (* 语句块：强制用大括号包围，实现结构清晰 *)
@@ -87,5 +87,5 @@ FunctionCall     ::= Identifier "(" [ Expression { "," Expression } ] ")" .
    Identifier, Number, ";", "=", "+", "-", "*", "/", "%", 
    "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
    "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
-   "if", "else", "for", "{" , "}" , "fun" , "return" , "in" , ":" (* 新增终结符: ":" 用于 MapLiteral *)
+   "if", "else", "for", "{" , "}" , "fun" , "return" , "in" , ":" 
 *)
