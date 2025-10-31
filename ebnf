@@ -13,10 +13,10 @@ Statement        ::= FunctionDefinition
 (* 语句块：强制用大括号包围，实现结构清晰 *)
 Block            ::= "{" { Statement } "}" .
 
-(* 赋值语句：左值 (LValue) 可以是变量或带索引的列表元素 *)
+(* 赋值语句：左值 (LValue) 可以是变量或带索引的列表元素/字典元素 *)
 Assignment       ::= LValue "=" Expression ";" .
 
-(* 变量或列表元素，可作为赋值左侧的目标 *)
+(* 变量、列表元素或字典元素，可作为赋值左侧的目标 *)
 LValue           ::= Identifier { "[" Expression "]" } .
 
 (* 函数定义：延续 Go-Style，强制使用 Block，使用 'fun' 关键字 *)
@@ -64,6 +64,7 @@ Factor           ::= Primary { "[" Expression "]" } (* 索引操作优先级最�
 (* 4. Primary: 最高优先级，处理最基础的不可分割元素 *)
 Primary          ::= Number
                    | ListLiteral
+                   | MapLiteral                     (* 新增：Map/Dict 字面量 *)
                    | "true"
                    | "false"
                    | "(" Expression ")"  (* 括号强制提高 Expression 的优先级 *)
@@ -74,6 +75,9 @@ Primary          ::= Number
 (* 辅助规则：列表字面量 *)
 ListLiteral      ::= "[" [ Expression { "," Expression } ] "]" .
 
+(* 辅助规则：Map/Dict 字面量 *)
+MapLiteral       ::= "{" [ Expression ":" Expression { "," Expression ":" Expression } ] "}" .
+
 (* 规则：函数调用 *)
 FunctionCall     ::= Identifier "(" [ Expression { "," Expression } ] ")" .
 
@@ -83,5 +87,5 @@ FunctionCall     ::= Identifier "(" [ Expression { "," Expression } ] ")" .
    Identifier, Number, ";", "=", "+", "-", "*", "/", "%", 
    "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
    "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
-   "if", "else", "for", "{" , "}" , "fun" , "return" , "in" 
+   "if", "else", "for", "{" , "}" , "fun" , "return" , "in" , ":" (* 新增终结符: ":" 用于 MapLiteral *)
 *)
