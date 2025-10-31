@@ -2,9 +2,9 @@
 Program          ::= { Statement } .
 
 (* 语句：程序执行的最小单元 *)
-Statement        ::= FunctionDefinition  (* 新增：函数定义 *)
+Statement        ::= FunctionDefinition
                    | Assignment
-                   | ReturnStatement     (* 新增：返回语句 *)
+                   | ReturnStatement
                    | IfStatement
                    | ForStatement
                    | Block
@@ -35,6 +35,7 @@ IfStatement      ::= "if" Expression Block [ "else" Statement ] .
 ForStatement     ::= "for"
                      ( Expression                                       (* while 风格: for condition *)
                      | [ Assignment ] ";" Expression ";" [ Assignment ] (* c 风格: for init; condition; post *)
+                     | Identifier "in" Expression                       (* 新增：集合迭代风格: for identifier in expression *)
                      ) Block
                      .
 
@@ -67,7 +68,7 @@ Primary          ::= Number
                    | "false"
                    | "(" Expression ")"  (* 括号强制提高 Expression 的优先级 *)
                    | Identifier
-                   | FunctionCall        (* 新增：函数调用 *)
+                   | FunctionCall
                    .
 
 (* 辅助规则：列表字面量 *)
@@ -82,5 +83,5 @@ FunctionCall     ::= Identifier "(" [ Expression { "," Expression } ] ")" .
    Identifier, Number, ";", "=", "+", "-", "*", "/", "%", 
    "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
    "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
-   "if", "else", "for", "{" , "}" , "fun" , "return"
+   "if", "else", "for", "{" , "}" , "fun" , "return" , "in" (*新增 in*)
 *)
