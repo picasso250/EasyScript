@@ -1,47 +1,73 @@
-(* Non-terminals (非终结符) *)
+(* Non-terminals (非终结符): 核心结构 *)
 Program          ::= { Statement } .
 
+(* 语句：程序执行的最小单元 *)
 Statement        ::= Assignment
                    | IfStatement
                    | ForStatement
                    | Block
                    ;
 
+(* 语句块：强制用大括号包围，实现结构清晰 *)
 Block            ::= "{" { Statement } "}" .
-Assignment       ::= Identifier "=" Expression ";" .
 
-(* 极简 If 语句：删除圆括号，遵循 Go 语言风格 *)
+(* 赋值语句：左值 (LValue) 可以是变量或带索引的列表元素 *)
+Assignment       ::= LValue "=" Expression ";" .
+
+(* 变量或列表元素，可作为赋值左侧的目标 *)
+LValue           ::= Identifier { "[" Expression "]" } .
+
+(* 
+ * 控制流结构 (If/For)
+ * 遵循 Go 语言风格：条件外无圆括号，强制使用 Block 
+ *)
 IfStatement      ::= "if" Expression Block [ "else" Statement ] .
 
-
-(* 极简 For 循环：删除圆括号，遵循 Go 语言风格 *)
 ForStatement     ::= "for"
-                     ( Expression Block                                       (* while 风格: for condition *)
-                     | [ Assignment ] ";" Expression ";" [ Assignment ] Block (* c 风格: for init; condition; post *)
-                     )
+                     ( Expression                                       (* while 风格: for condition *)
+                     | [ Assignment ] ";" Expression ";" [ Assignment ] (* c 风格: for init; condition; post *)
+                     ) Block
                      .
 
 
 (*
- * 表达式定义 (保持不变)
+ * 表达式定义 (4 层优先级结构)
+ * 优先级: [] > [一元负号] > [*/% <<>> &|^] > [+- <><=>===!= && ||]
  *)
 
-(* 1. Expression: 最低优先级 *)
+(* 1. Expression: 最低优先级，处理 [+-, 关系, 逻辑] *)
 Expression       ::= Term { ( "+" | "-"
                           | "<" | "<=" | ">" | ">="
                           | "==" | "!="
                           | "&&" | "||" ) Term } .
 
-(* 2. Term: 中等优先级 *)
+(* 2. Term: 中等优先级，处理 [*/%, 移位, 位运算] *)
 Term             ::= Factor { ( "*" | "/" | "%"
                           | "<<" | ">>"
                           | "&" | "|" | "^" ) Factor } .
 
-(* 3. Factor: 最高优先级 *)
-Factor           ::= Number
-                   | Identifier
+(* 3. Factor: 高优先级，处理 [索引] 和 [一元负号] *)
+Factor           ::= Primary { "[" Expression "]" } (* 索引操作优先级最高 *)
+                   | [ "-" ] Factor                 (* 一元负号 *)
+                   .
+
+(* 4. Primary: 最高优先级，处理最基础的不可分割元素 *)
+Primary          ::= Number
+                   | ListLiteral
                    | "true"
                    | "false"
-                   | "(" Expression ")"  (* 只有这里使用括号来强制优先级 *)
-                   | [ "-" ] Factor
+                   | "(" Expression ")"  (* 括号强制提高 Expression 的优先级 *)
+                   | Identifier
                    .
+
+(* 辅助规则：列表字面量 *)
+ListLiteral      ::= "[" [ Expression { "," Expression } ] "]" .
+
+
+(* --- 终结符 (Terminal Symbols) 列表 --- *)
+(* 
+   Identifier, Number, ";", "=", "+", "-", "*", "/", "%", 
+   "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
+   "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
+   "if", "else", "for", "{" , "}"
+*)
