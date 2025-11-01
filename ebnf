@@ -83,7 +83,7 @@ FactorExpression ::= PrimaryExpression { ( "*" | "/" | "%"
 
 (* 3. PrimaryExpression: 最高优先级，处理最基础的不可分割元素、索引、一元负号 *)
 PrimaryExpression ::= Literal
-                    | FunctionCall
+                    | FunctionCall (* 新增：FunctionCall 可以是 PrimaryExpression 的一部分 *)
                     | Identifier { "[" TermExpression "]" } (* 索引操作 *)
                     | [ "-" ] PrimaryExpression               (* 一元负号 *)
                     | "(" TermExpression ")" .                (* 括号强制提高 TermExpression 的优先级 *)
@@ -106,7 +106,10 @@ ListLiteral      ::= "[" [ TermExpression { "," TermExpression } ] "]" .
 MapLiteral       ::= "{" [ TermExpression ":" TermExpression { "," TermExpression ":" TermExpression } ] "}" .
 
 (* 规则：函数调用 *)
-FunctionCall     ::= Identifier "(" [ TermExpression { "," TermExpression } ] ")" .
+FunctionCall     ::= PrimaryExpression "(" [ TermExpression { "," TermExpression } ] ")" . 
+(* 修改点：将 Identifier 替换为 PrimaryExpression，允许任何返回函数的表达式被调用。
+   注意：FunctionCall 是 PrimaryExpression 的子集，这天然保证了其优先级高于所有中低级运算。
+*)
 
 
 (* --- 终结符 (Terminal Symbols) 列表 --- *)
