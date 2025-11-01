@@ -1,91 +1,118 @@
 (* Non-terminals (非终结符): 核心结构 *)
-Program          ::= { Statement } .
+Program          ::= { Expression ";" } [ Expression ] .
+(* 
+ * Program 语义：
+ * 1. 顶层结构是隐式的表达式块，即一个 Expression 序列。
+ * 2. 程序执行完毕后，返回最后一个 Expression 的值（如果存在），否则返回 nil。
+ *)
 
-(* 语句：程序执行的最小单元 *)
-Statement        ::= FunctionDefinition
-                   | Assignment
-                   | ReturnStatement
-                   | IfStatement
-                   | ForStatement
-                   (* REMOVED: Block -- 独立代码块不再作为Statement，以避免不必要的局部作用域 *)
-                   ;
 
-(* 语句块：强制用大括号包围，实现结构清晰 *)
-Block            ::= "{" { Statement } "}" .
-
-(* 赋值语句：左值 (LValue) 可以是变量或带索引的列表元素/字典元素 *)
-Assignment       ::= LValue "=" Expression ";" .
+(* 顶级表达式：包含所有可能作为 BlockExpression 内部元素的表达式 *)
+Expression       ::= IfExpression
+                   | ForExpression
+                   | FunctionDefinition
+                   | AssignmentExpression
+                   | TermExpression .
+                   
+(*
+ * AssignmentExpression (赋值表达式)
+ * 赋值操作现在是一个 Expression，带有副作用 (修改 LValue)，且返回 'nil'。
+ *)
+AssignmentExpression ::= LValue "=" TermExpression . (* LValue 只能是 TermExpression 的子集 *)
 
 (* 变量、列表元素或字典元素，可作为赋值左侧的目标 *)
-LValue           ::= Identifier { "[" Expression "]" } .
-
-(* 函数定义：延续 Go-Style，强制使用 Block，使用 'fun' 关键字 *)
-FunctionDefinition ::= "fun" Identifier "(" [ Identifier { "," Identifier } ] ")" Block .
-
-(* 返回语句：可带或不带返回值 *)
-ReturnStatement  ::= "return" [ Expression ] ";" .
+LValue           ::= Identifier { "[" TermExpression "]" } .
 
 
 (* 
- * 控制流结构 (If/For)
- * 遵循 Go 语言风格：条件外无圆括号，强制使用 Block 
+ * 函数定义 (FunctionDefinition)
+ * 函数定义现在是一个 Expression，它返回一个可执行的函数对象。
  *)
-IfStatement      ::= "if" Expression Block [ "else" Statement ] .
+FunctionDefinition ::= "fun" Identifier "(" [ Identifier { "," Identifier } ] ")" 
+                     "{" { Expression ";" } [ Expression ] "}" .
+(* 
+ * 函数体语义：
+ * 1. 函数体是一个表达式块，必须用 {} 包裹。
+ * 2. 函数的返回值是块中最后一个 Expression 的值。
+ *)
 
-(* For 循环精简为两种形式：Condition-Style (While) 和 Collection-Style (Foreach) *)
-ForStatement     ::= "for"
-                     ( Expression                                       (* while 风格: for condition *)
-                     | Identifier "in" Expression                       (* 集合迭代风格: for identifier in expression *)
-                     ) Block
-                     .
 
+(* 
+ * 控制流结构：现在都是 Expression
+ *)
+
+(* If Expression：else 可选，如果条件不满足且无 else，返回 'nil' *)
+IfExpression     ::= "if" Expression 
+                     "{" { Expression ";" } [ Expression ] "}" (* Then Block *)
+                     [ "else" 
+                       ( IfExpression | "{" { Expression ";" } [ Expression ] "}" ) 
+                     ] .
+(* 
+ * If 语义：
+ * 1. 返回满足条件分支的表达式块中最后一个 Expression 的值。
+ * 2. 如果条件不满足且没有 else，返回 'nil'。
+ *)
+
+
+(* For Expression (Collection-Style/List Comprehension): 遍历集合并返回一个新列表 *)
+ForExpression    ::= "for" Identifier "in" Expression 
+                     "{" { Expression ";" } [ Expression ] "}" .
+(* 
+ * For 语义 (列表生成)：
+ * 1. 每次迭代，收集块中**最后一个 Expression 的值**到一个新的列表中。
+ * 2. ForExpression 最终返回这个新列表。
+ *)
 
 (*
- * 表达式定义 (4 层优先级结构)
- * 优先级: [] > [一元负号] > [*/% <<>> &|^] > [+- <><=>===!= && ||]
+ * 表达式定义 (3 层优先级结构)
+ * 注：AssignmentExpression/IfExpression/ForExpression/FunctionDefinition 已经被提升到顶级 Expression，
+ * 这里只保留纯粹的运算优先级结构，我们简化并统一为 TermExpression。
+ * 优先级: [] > [一元负号, 函数调用] > [*/% <<>> &|^] > [+- <><=>===!= && ||]
  *)
 
-(* 1. Expression: 最低优先级，处理 [+-, 关系, 逻辑] *)
-Expression       ::= Term { ( "+" | "-"
-                          | "<" | "<=" | ">" | ">="
-                          | "==" | "!="
-                          | "&&" | "||" ) Term } .
+(* 1. TermExpression: 最低优先级，处理 [+-, 关系, 逻辑] *)
+TermExpression   ::= FactorExpression { ( "+" | "-"
+                                       | "<" | "<=" | ">" | ">="
+                                       | "==" | "!="
+                                       | "&&" | "||" ) FactorExpression } .
 
-(* 2. Term: 中等优先级，处理 [*/%, 移位, 位运算] *)
-Term             ::= Factor { ( "*" | "/" | "%"
-                          | "<<" | ">>"
-                          | "&" | "|" | "^" ) Factor } .
+(* 2. FactorExpression: 中等优先级，处理 [*/%, 移位, 位运算] *)
+FactorExpression ::= PrimaryExpression { ( "*" | "/" | "%"
+                                        | "<<" | ">>"
+                                        | "&" | "|" | "^" ) PrimaryExpression } .
 
-(* 3. Factor: 高优先级，处理 [索引] 和 [一元负号] *)
-Factor           ::= Primary { "[" Expression "]" } (* 索引操作优先级最高 *)
-                   | [ "-" ] Factor                 (* 一元负号 *)
-                   .
+(* 3. PrimaryExpression: 最高优先级，处理最基础的不可分割元素、索引、一元负号 *)
+PrimaryExpression ::= Literal
+                    | FunctionCall
+                    | Identifier { "[" TermExpression "]" } (* 索引操作 *)
+                    | [ "-" ] PrimaryExpression               (* 一元负号 *)
+                    | "(" TermExpression ")" .                (* 括号强制提高 TermExpression 的优先级 *)
 
-(* 4. Primary: 最高优先级，处理最基础的不可分割元素 *)
-Primary          ::= Number
+
+(* 辅助规则：字面量 *)
+Literal          ::= Number
+                   | StringLiteral
                    | ListLiteral
-                   | MapLiteral                     (* 新增：Map/Dict 字面量 *)
+                   | MapLiteral
                    | "true"
                    | "false"
-                   | "(" Expression ")"  (* 括号强制提高 Expression 的优先级 *)
-                   | Identifier
-                   | FunctionCall
-                   .
+                   | "nil" .
+
 
 (* 辅助规则：列表字面量 *)
-ListLiteral      ::= "[" [ Expression { "," Expression } ] "]" .
+ListLiteral      ::= "[" [ TermExpression { "," TermExpression } ] "]" .
 
 (* 辅助规则：Map/Dict 字面量 *)
-MapLiteral       ::= "{" [ Expression ":" Expression { "," Expression ":" Expression } ] "}" .
+MapLiteral       ::= "{" [ TermExpression ":" TermExpression { "," TermExpression ":" TermExpression } ] "}" .
 
 (* 规则：函数调用 *)
-FunctionCall     ::= Identifier "(" [ Expression { "," Expression } ] ")" .
+FunctionCall     ::= Identifier "(" [ TermExpression { "," TermExpression } ] ")" .
 
 
 (* --- 终结符 (Terminal Symbols) 列表 --- *)
 (* 
-   Identifier, Number, ";", "=", "+", "-", "*", "/", "%", 
+   Identifier, Number, StringLiteral, ";", "=", "+", "-", "*", "/", "%", 
    "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
    "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
-   "if", "else", "for", "{" , "}" , "fun" , "return" , "in" , ":" 
+   "if", "else", "for", "{" , "}" , "fun" , "in" , ":" , "nil"
 *)
