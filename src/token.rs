@@ -1,9 +1,17 @@
+// 新增 Literal 枚举来存储字符串和数字的实际值
+#[derive(Debug, Clone, PartialEq)]
+pub enum Literal {
+    String(String),
+    Number(f64),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     // --- 字面量 (Literals) ---
+    // 标识符现在携带其名称
     Identifier(String),
-    Number(f64),
-    StringLiteral(String),
+    // Literal 变体携带具体的字面量值 (数字、字符串)
+    Literal(Literal),
 
     // --- 关键字 (Keywords) ---
     KeywordIf,

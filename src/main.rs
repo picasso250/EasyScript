@@ -1,24 +1,50 @@
-// 声明项目中的模块，这样其他文件就能通过 `crate::module_name::...` 访问
 mod value;
 mod token;
 mod ast;
+mod lexer; // 引入新的 Lexer 模块
 
-// 我们可以引入一些常用的类型，以便在 main 函数中使用
-use value::Value;
-use ast::{Expression, Block};
+// 引入 lazy_static 宏
+#[macro_use]
+extern crate lazy_static;
+
+// ... (保留原有的 use 声明)
+use lexer::Lexer; // 引入 Lexer
 
 fn main() {
     println!("EasyScript 解释器正在启动...");
     
-    // 我们可以测试一下之前定义的结构是否可以正常使用
-    let test_expression = Expression::Literal(ast::LiteralValue::Number(42.0));
+    // 测试代码片段
+    let source = r#"
+        // 这是一个注释
+        a = if x > 10 { 
+            42.5 + true 
+        } else {
+            "hello";
+        };
+        
+        arr[0] = fun(z) { z * 2 };
+        b = 10 << 2;
+    "#;
     
-    println!("测试 AST 节点: {:?}", test_expression);
+    // 实例化并运行 Lexer
+    let lexer = Lexer::new(source);
+    let (tokens, errors) = lexer.scan_tokens();
+
+    // 打印结果
+    if !errors.is_empty() {
+        println!("\n--- Lexer 错误 ---");
+        for error in errors {
+            println!("{}", error);
+        }
+        return; // 如果有词法错误，停止继续
+    }
+
+    println!("\n--- Lexer 输出 Token ({}) ---", tokens.len());
+    for token in tokens.iter().take(20) { // 仅显示前 20 个 Token
+        println!("{:?}", token);
+    }
     
-    // TODO: 在这里我们将开始调用词法分析器和语法分析器
-    // 例如：
-    // let source = "a = 1 + 2;";
-    // let tokens = token::Lexer::new(source).scan_tokens();
-    // let ast = ast::Parser::new(tokens).parse();
-    // let result = value::Interpreter::new().interpret(ast);
+    // TODO: 在这里我们将开始调用语法分析器 (Parser)
+    
+    // println!("测试 AST 节点: {:?}", test_expression); // 移除测试 AST
 }
