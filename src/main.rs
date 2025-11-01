@@ -10,15 +10,16 @@ use parser::Parser;
 fn main() {
     println!("EasyScript 解释器启动...");
     
-    // 使用更复杂的测试代码来验证优先级和各种运算符
+    // 使用新的测试代码来验证调用、访问和字面量
     let source = r#"
-        // EBNF: Term -> Factor { TermOp Factor }
-        // EBNF: Factor -> Unary { FactorOp Unary }
+        // 这是一个综合测试用例
         
-        result = -5 * (10 + 2) > 50 && true || 1 << 2 == 4;
+        // 列表和字典字面量
+        my_list = [1, "two", true];
+        my_map = { "key": my_list[0], "another": false };
         
-        // 预期 AST 结构:
-        // (( ((-5 * (10 + 2)) > 50) && true ) || ( (1 << 2) == 4 ))
+        // 链式调用、访问和赋值
+        my_map.new_prop = some_object.get_list(arg1)[0]();
     "#;
     
     println!("\n--- 源代码 ---\n{}", source);
@@ -33,6 +34,11 @@ fn main() {
         return;
     }
     
+    // println!("\n--- Tokens ---");
+    // for token in &tokens {
+    //     println!("{:?}", token);
+    // }
+
     // 2. 语法分析 (Parser)
     let parser = Parser::new(tokens);
     let (ast_root, parser_errors) = parser.parse();
