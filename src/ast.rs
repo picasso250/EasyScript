@@ -13,12 +13,12 @@ pub enum Expression {
     // ----------------------------------------------------
     // II. 运算表达式 (Operations)
     // ----------------------------------------------------
-    // PrimaryExpression 中的一元负号
+    // 一元运算
     Unary {
         op: UnaryOperator,
         expr: Box<Expression>,
     },
-    // TermExpression 和 FactorExpression
+    // 二元运算
     Binary {
         left: Box<Expression>,
         op: BinaryOperator,

@@ -1,50 +1,50 @@
 mod value;
 mod token;
 mod ast;
-mod lexer; // 引入新的 Lexer 模块
+mod lexer;
+mod parser;
 
-// 引入 lazy_static 宏
-#[macro_use]
-extern crate lazy_static;
-
-// ... (保留原有的 use 声明)
-use lexer::Lexer; // 引入 Lexer
+use lexer::Lexer;
+use parser::Parser;
 
 fn main() {
-    println!("EasyScript 解释器正在启动...");
+    println!("EasyScript 解释器启动...");
     
-    // 测试代码片段
+    // 使用更复杂的测试代码来验证优先级和各种运算符
     let source = r#"
-        // 这是一个注释
-        a = if x > 10 { 
-            42.5 + true 
-        } else {
-            "hello";
-        };
+        // EBNF: Term -> Factor { TermOp Factor }
+        // EBNF: Factor -> Unary { FactorOp Unary }
         
-        arr[0] = fun(z) { z * 2 };
-        b = 10 << 2;
+        result = -5 * (10 + 2) > 50 && true || 1 << 2 == 4;
+        
+        // 预期 AST 结构:
+        // (( ((-5 * (10 + 2)) > 50) && true ) || ( (1 << 2) == 4 ))
     "#;
     
-    // 实例化并运行 Lexer
+    println!("\n--- 源代码 ---\n{}", source);
+
+    // 1. 词法分析 (Lexer)
     let lexer = Lexer::new(source);
-    let (tokens, errors) = lexer.scan_tokens();
+    let (tokens, lexer_errors) = lexer.scan_tokens();
 
-    // 打印结果
-    if !errors.is_empty() {
+    if !lexer_errors.is_empty() {
         println!("\n--- Lexer 错误 ---");
-        for error in errors {
-            println!("{}", error);
-        }
-        return; // 如果有词法错误，停止继续
+        lexer_errors.iter().for_each(|e| println!("{}", e));
+        return;
+    }
+    
+    // 2. 语法分析 (Parser)
+    let parser = Parser::new(tokens);
+    let (ast_root, parser_errors) = parser.parse();
+
+    if !parser_errors.is_empty() {
+        println!("\n--- Parser 错误 ---");
+        parser_errors.iter().for_each(|e| println!("{}", e));
+        return;
     }
 
-    println!("\n--- Lexer 输出 Token ({}) ---", tokens.len());
-    for token in tokens.iter().take(20) { // 仅显示前 20 个 Token
-        println!("{:?}", token);
-    }
-    
-    // TODO: 在这里我们将开始调用语法分析器 (Parser)
-    
-    // println!("测试 AST 节点: {:?}", test_expression); // 移除测试 AST
+    println!("\n--- Parser 输出 AST ---");
+    println!("{:#?}", ast_root);
+
+    // 3. TODO: 求值/解释 (Interpreter)
 }
