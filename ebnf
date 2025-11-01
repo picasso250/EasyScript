@@ -21,7 +21,7 @@ Expression       ::= IfExpression
 AssignmentExpression ::= LValue "=" TermExpression . (* LValue 只能是 TermExpression 的子集 *)
 
 (* 变量、列表元素或字典元素，可作为赋值左侧的目标 *)
-LValue           ::= Identifier { "[" TermExpression "]" } .
+LValue           ::= Identifier { Accessor } . (* 修改：使用 Accessor 规则 *)
 
 
 (* 
@@ -67,7 +67,7 @@ ForExpression    ::= "for" Identifier "in" Expression
  * 表达式定义 (3 层优先级结构)
  * 注：AssignmentExpression/IfExpression/ForExpression/FunctionDefinition 已经被提升到顶级 Expression，
  * 这里只保留纯粹的运算优先级结构，我们简化并统一为 TermExpression。
- * 优先级: [] > [一元负号, 函数调用] > [*/% <<>> &|^] > [+- <><=>===!= && ||]
+ * 优先级: []/. > [一元负号, 函数调用] > [*/% <<>> &|^] > [+- <><=>===!= && ||]
  *)
 
 (* 1. TermExpression: 最低优先级，处理 [+-, 关系, 逻辑] *)
@@ -83,10 +83,14 @@ FactorExpression ::= PrimaryExpression { ( "*" | "/" | "%"
 
 (* 3. PrimaryExpression: 最高优先级，处理最基础的不可分割元素、索引、一元负号 *)
 PrimaryExpression ::= Literal
-                    | FunctionCall (* 新增：FunctionCall 可以是 PrimaryExpression 的一部分 *)
-                    | Identifier { "[" TermExpression "]" } (* 索引操作 *)
+                    | FunctionCall (* FunctionCall 是 PrimaryExpression 的一部分 *)
+                    | Identifier { Accessor } (* 修改：使用 Accessor 规则 *)
                     | [ "-" ] PrimaryExpression               (* 一元负号 *)
                     | "(" TermExpression ")" .                (* 括号强制提高 TermExpression 的优先级 *)
+
+(* 新增规则：Accessor 规则。用于列表/字典的索引和属性的点访问。 *)
+Accessor         ::= "[" TermExpression "]"                       (* 索引访问，键可以是表达式 *)
+                   | "." Identifier .                             (* 点访问，键只能是标识符 *)
 
 
 (* 辅助规则：字面量 *)
@@ -107,8 +111,8 @@ MapLiteral       ::= "{" [ TermExpression ":" TermExpression { "," TermExpressio
 
 (* 规则：函数调用 *)
 FunctionCall     ::= PrimaryExpression "(" [ TermExpression { "," TermExpression } ] ")" . 
-(* 修改点：将 Identifier 替换为 PrimaryExpression，允许任何返回函数的表达式被调用。
-   注意：FunctionCall 是 PrimaryExpression 的子集，这天然保证了其优先级高于所有中低级运算。
+(* 运行时语义补充：如果 FunctionCall 的调用者是通过 Accessor 规则中的 '.' 访问得来的，
+   解释器将自动注入被访问的对象（即 'self'）作为第一个参数。
 *)
 
 
@@ -117,5 +121,5 @@ FunctionCall     ::= PrimaryExpression "(" [ TermExpression { "," TermExpression
    Identifier, Number, StringLiteral, ";", "=", "+", "-", "*", "/", "%", 
    "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
    "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
-   "if", "else", "for", "{" , "}" , "fun" , "in" , ":" , "nil"
+   "if", "else", "for", "{" , "}" , "fun" , "in" , ":" , "nil", "."
 *)
