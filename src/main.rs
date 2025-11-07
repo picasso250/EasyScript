@@ -10,7 +10,7 @@ use parser::Parser;
 fn main() {
     println!("EasyScript 解释器启动...");
     
-    // 使用新的测试代码来验证调用、访问和字面量
+    // 更新测试代码以包含 if-else 表达式
     let source = r#"
         // 这是一个综合测试用例
         
@@ -20,6 +20,24 @@ fn main() {
         
         // 链式调用、访问和赋值
         my_map.new_prop = some_object.get_list(arg1)[0]();
+        
+        // 新增：If-Else 表达式测试
+        a = 10;
+        result = if a > 5 { 
+            "greater"; 
+        } else { 
+            "smaller_or_equal";
+        };
+        
+        // else-if 链式测试
+        final_val = if a == 1 { 
+            1; 
+        } else if a > 100 {
+            100;
+        } else {
+            -1;
+        };
+
     "#;
     
     println!("\n--- 源代码 ---\n{}", source);

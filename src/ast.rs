@@ -9,6 +9,7 @@ pub enum Expression {
     // ----------------------------------------------------
     Literal(LiteralValue), // 字面量 (Number, String, True, False, Nil)
     Identifier(String),    // 变量引用
+    Block(Block),          // 新增: 表达式块 { expr1; expr2 }
 
     // ----------------------------------------------------
     // II. 运算表达式 (Operations)
@@ -41,7 +42,8 @@ pub enum Expression {
     If {
         condition: Box<Expression>,
         then_block: Block,
-        else_branch: Option<Box<Expression>>, // else 可以是另一个 IfExpression 或 Block
+        // else_branch 可以是另一个 IfExpression 或一个 BlockExpression
+        else_branch: Option<Box<Expression>>, 
     },
     
     // For Expression (列表生成/map)
@@ -85,7 +87,6 @@ pub struct Block {
 }
 
 // 辅助结构：赋值左值 (LValue)
-// LValue 在 EBNF 中是 Identifier { Accessor }，在 AST 中我们直接解析出其结构
 #[derive(Debug, Clone)]
 pub enum LValue {
     Identifier(String), // 变量名
