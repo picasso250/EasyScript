@@ -1,5 +1,5 @@
-sum = 0;
-my_list = [1, 2, 3];
+let sum = 0;
+let my_list = [1, 2, 3];
 for x in my_list {
     sum = sum + x;
 }

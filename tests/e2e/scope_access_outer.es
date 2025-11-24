@@ -1,8 +1,8 @@
 // Test that inner scopes can access outer scope variables
 
-a = 100;
-b = 50;
-c = 0;
+let a = 100;
+let b = 50;
+let c = 0;
 
 {
   c = a + b; // Access 'a' and 'b' from the outer scope

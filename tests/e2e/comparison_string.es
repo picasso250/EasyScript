@@ -1,7 +1,7 @@
 // Test equality on non-numeric types
 
-a = "hello";
-b = "world";
+let a = "hello";
+let b = "world";
 
 // String equality
 a != b;

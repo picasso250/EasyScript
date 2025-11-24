@@ -1,6 +1,6 @@
 // Test if-else statement with a false condition
 
-a = 3;
+let a = 3;
 if a > 5 {
   "condition is true";
 } else {

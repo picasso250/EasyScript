@@ -1,5 +1,6 @@
 use crate::token::{Token, Literal};
 use std::collections::HashMap;
+use crate::error::{EasyScriptError, SourceLocation};
 
 // 预定义的关键字查找表
 lazy_static::lazy_static! {
@@ -22,12 +23,11 @@ lazy_static::lazy_static! {
 pub struct Lexer<'a> {
     source: &'a str,
     chars: std::iter::Peekable<std::str::Chars<'a>>,
-    start: usize, // 当前 Token 的起始位置（字节索引）
-    current: usize, // 当前处理到的位置（字节索引）
-    line: usize, // 当前行号
+    start: usize,         // 当前 Token 的起始位置（字节索引）
+    current: usize,       // 当前处理到的位置（字节索引）
+    line: usize,          // 当前 Token 的起始行号
+    column: usize,        // 当前 Token 的起始列号 (字符索引)
     tokens: Vec<Token>,
-    // 词法分析中遇到的错误
-    errors: Vec<String>, 
 }
 
 impl<'a> Lexer<'a> {
@@ -37,34 +37,39 @@ impl<'a> Lexer<'a> {
             chars: source.chars().peekable(),
             start: 0,
             current: 0,
-            line: 1,
+            line: 1,      // 初始行号为 1
+            column: 1,    // 初始列号为 1
             tokens: Vec::new(),
-            errors: Vec::new(),
         }
     }
-
     // 核心方法：扫描所有 Token
-    pub fn scan_tokens(mut self) -> (Vec<Token>, Vec<String>) {
+    pub fn scan_tokens(mut self) -> Result<Vec<Token>, EasyScriptError> { // 返回 Result
         // 在 main.rs 中初始化 lazy_static
         let _ = &*KEYWORDS; 
         
         while self.peek().is_some() {
             self.start = self.current;
-            self.scan_token();
+            self.scan_token()?; // scan_token 现在返回 Result<()>
         }
 
         // 添加文件结束符
         self.tokens.push(Token::Eof);
         
-        (self.tokens, self.errors)
+        Ok(self.tokens) // 成功时返回 Token 列表
     }
 
     // ---------------------- 辅助方法 ----------------------
 
-    // 消耗并返回当前字符，同时更新 current 索引
+    // 消耗并返回当前字符，同时更新 current 索引、行号和列号
     fn advance(&mut self) -> Option<char> {
         let next_char = self.chars.next();
         if let Some(c) = next_char {
+            if c == '\n' {
+                self.line += 1;
+                self.column = 1;
+            } else {
+                self.column += 1;
+            }
             self.current += c.len_utf8();
             Some(c)
         } else {
@@ -103,23 +108,25 @@ impl<'a> Lexer<'a> {
         self.tokens.push(token);
     }
     
-    // 报告错误
-    fn error(&mut self, message: &str) {
-        self.errors.push(format!("[Line {}] Error: {}", self.line, message));
+    // 报告词法错误，并返回 EasyScriptError
+    fn error<T>(&self, message: &str, line: usize, column: usize) -> Result<T, EasyScriptError> {
+        Err(EasyScriptError::LexerError {
+            message: message.to_string(),
+            location: Some(SourceLocation { line, column }),
+        })
     }
     
     // ---------------------- Token 处理器 ----------------------
     
-    // 处理字符串字面量 (支持转义和多行，但此处为实用主义简化)
-    fn handle_string(&mut self) {
+    // 处理字符串字面量
+    fn handle_string(&mut self, line: usize, column: usize) -> Result<(), EasyScriptError> {
         // 查找下一个双引号
         while self.peek().map_or(false, |c| c != '"' && c != '\n') {
             self.advance();
         }
 
         if self.peek() != Some('"') {
-            self.error("Unterminated string.");
-            return;
+            return self.error("Unterminated string.", line, column);
         }
 
         self.advance(); // 消耗闭合的双引号 "
@@ -129,10 +136,11 @@ impl<'a> Lexer<'a> {
         let value_end = self.current - 1;
         let value = self.source[value_start..value_end].to_string();
         self.add_token(Token::Literal(Literal::String(value)));
+        Ok(())
     }
 
     // 处理数字字面量 (整数和浮点数)
-    fn handle_number(&mut self) {
+    fn handle_number(&mut self, line: usize, column: usize) -> Result<(), EasyScriptError> {
         // 整数部分
         while self.peek().map_or(false, |c| c.is_ascii_digit()) {
             self.advance();
@@ -149,12 +157,13 @@ impl<'a> Lexer<'a> {
         let num_str = self.substring();
         match num_str.parse::<f64>() {
             Ok(num) => self.add_token(Token::Literal(Literal::Number(num))),
-            Err(_) => self.error(&format!("Invalid number format: {}", num_str)),
+            Err(_) => return self.error(&format!("Invalid number format: {}", num_str), line, column),
         }
+        Ok(())
     }
 
     // 处理标识符和关键字
-    fn handle_identifier(&mut self) {
+    fn handle_identifier(&mut self) -> Result<(), EasyScriptError> { // 返回 Result<()>
         while self.peek().map_or(false, |c| c.is_ascii_alphanumeric() || c == '_') {
             self.advance();
         }
@@ -168,14 +177,18 @@ impl<'a> Lexer<'a> {
         });
         
         self.add_token(token);
+        Ok(())
     }
 
     // ---------------------- 核心分发器 ----------------------
 
-    fn scan_token(&mut self) {
+    fn scan_token(&mut self) -> Result<(), EasyScriptError> { // 返回 Result<()>
+        let token_start_line = self.line; // 记录当前 token 的起始行
+        let token_start_column = self.column; // 记录当前 token 的起始列
+
         let c = match self.advance() {
             Some(c) => c,
-            None => return, // 达到文件末尾
+            None => return Ok(()), // 达到文件末尾
         };
 
         match c {
@@ -202,21 +215,20 @@ impl<'a> Lexer<'a> {
                 self.add_token(token);
             }
             '!' => {
-                let token = if self.match_char('=') { Token::BangEqual } else { 
-                    self.error("Unexpected character '!'"); 
-                    return;
+                let token = if self.match_char('=') { Token::BangEqual } else {
+                    return self.error("Unexpected character '!'", token_start_line, token_start_column);
                 };
                 self.add_token(token);
             }
             '<' => {
-                let token = if self.match_char('=') { Token::LessEqual } 
-                            else if self.match_char('<') { Token::ShiftLeft } 
+                let token = if self.match_char('=') { Token::LessEqual }
+                            else if self.match_char('<') { Token::ShiftLeft }
                             else { Token::Less };
                 self.add_token(token);
             }
             '>' => {
-                let token = if self.match_char('=') { Token::GreaterEqual } 
-                            else if self.match_char('>') { Token::ShiftRight } 
+                let token = if self.match_char('=') { Token::GreaterEqual }
+                            else if self.match_char('>') { Token::ShiftRight }
                             else { Token::Greater };
                 self.add_token(token);
             }
@@ -236,7 +248,7 @@ impl<'a> Lexer<'a> {
                     }
                 } else if self.match_char('*') {
                     // TODO: 实现块注释 /* ... */
-                    self.error("Block comments are not fully implemented yet.");
+                    return self.error("Block comments are not fully implemented yet.", token_start_line, token_start_column);
                 } else {
                     self.add_token(Token::Slash);
                 }
@@ -244,20 +256,20 @@ impl<'a> Lexer<'a> {
 
             // 忽略空白字符
             ' ' | '\r' | '\t' => {}
-            '\n' => self.line += 1,
+            '\n' => {} // advance 已经处理了行和列更新
 
             // 字符串字面量
-            '"' => self.handle_string(),
-
+            '"' => self.handle_string(token_start_line, token_start_column)?, // handle_string 现在返回 Result
             // 数字字面量 (0-9 或 .)
-            c if c.is_ascii_digit() => self.handle_number(),
-            
+            c if c.is_ascii_digit() => self.handle_number(token_start_line, token_start_column)?, // handle_number 现在返回 Result
+
             // 标识符/关键字 (字母或下划线开头)
-            c if c.is_ascii_alphabetic() || c == '_' => self.handle_identifier(),
+            c if c.is_ascii_alphabetic() || c == '_' => self.handle_identifier()?,
 
             // 未知字符
-            _ => self.error(&format!("Unexpected character: {}", c)),
+            _ => return self.error(&format!("Unexpected character: {}", c), token_start_line, token_start_column),
         }
+        Ok(())
     }
 }
 

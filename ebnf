@@ -11,14 +11,24 @@ Program          ::= { Expression ";" } [ Expression ] .
 Expression       ::= IfExpression
                    | ForExpression
                    | FunctionDefinition
-                   | AssignmentExpression
+                   | LetDeclaration        (* 新增 *)
+                   | AssignmentExpression  (* 保持，但语义有变 *)
                    | TermExpression .
-                   
+
 (*
- * AssignmentExpression (赋值表达式)
- * 赋值操作现在是一个 Expression，带有副作用 (修改 LValue)，且返回 'nil'。
+ * AssignmentExpression (重新赋值表达式)
+ * 重新赋值操作是一个 Expression，带有副作用 (修改 LValue)，且返回 'nil'。
+ * LValue 中的 Identifier 必须是已存在的变量，否则产生运行时错误。
  *)
-AssignmentExpression ::= LValue "=" TermExpression . (* LValue 只能是 TermExpression 的子集 *)
+AssignmentExpression ::= LValue "=" TermExpression .
+
+LetDeclaration   ::= "let" Identifier "=" Expression .
+(*
+ * LetDeclaration (变量声明表达式)
+ * `let` 用于在当前作用域中声明并初始化一个新变量。
+ * 总是创建一个新变量，即使外层作用域存在同名变量（遮蔽）。
+ * LetDeclaration 是一个 Expression，返回被赋的值。
+ *)
 
 (* 变量、列表元素或字典元素，可作为赋值左侧的目标 *)
 LValue           ::= Identifier { Accessor } . (* 修改：使用 Accessor 规则 *)

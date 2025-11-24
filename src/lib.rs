@@ -8,6 +8,7 @@ pub mod lexer;
 pub mod parser;
 pub mod token;
 pub mod value;
+pub mod error;
 
 // Expose the key components for external use (e.g., by main.rs or tests).
 pub use lexer::Lexer;

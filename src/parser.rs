@@ -1,40 +1,33 @@
 use crate::ast::{AccessType, BinaryOperator, Block, Expression, LValue, LiteralValue, UnaryOperator};
 use crate::token::{Literal, Token};
+use crate::error::{EasyScriptError, SourceLocation};
 
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
-    errors: Vec<String>,
 }
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
-        // --- FIX: Corrected Vec::new() syntax ---
-        Parser { tokens, current: 0, errors: Vec::new() }
+        Parser { tokens, current: 0 }
     }
 
-    pub fn parse(mut self) -> (Block, Vec<String>) {
+    pub fn parse(mut self) -> Result<Block, EasyScriptError> { // 返回 Result<Block, EasyScriptError>
         let mut expressions = Vec::new();
         while !self.is_at_end() {
-            match self.expression() {
-                Ok(expr) => expressions.push(expr),
-                Err(e) => {
-                    self.errors.push(e);
-                    self.synchronize();
-                }
-            }
+            expressions.push(self.expression()?); // 错误直接通过 '?' 传播
             // 允许多个分号或最后一个表达式后没有分号
             while self.match_tokens(&[Token::Semicolon]) {
                 // consume all semicolons
             }
         }
-        (Block { expressions }, self.errors)
+        Ok(Block { expressions })
     }
 
     // --- 语法规则实现 ---
 
     // This function assumes the "fun" keyword has NOT been consumed by its caller.
-    fn function_definition(&mut self) -> Result<Expression, String> {
+    fn function_definition(&mut self) -> Result<Expression, EasyScriptError> {
         self.consume(&Token::KeywordFun, "Expect 'fun' keyword.")?; // Consume 'fun'
 
         // Optional: Function Name (for named functions, though EasyScript is anonymous functions for now)
@@ -70,7 +63,7 @@ impl Parser {
     }
 
     // This function assumes the "for" keyword has NOT been consumed by its caller.
-    fn for_expression(&mut self) -> Result<Expression, String> {
+    fn for_expression(&mut self) -> Result<Expression, EasyScriptError> {
         self.consume(&Token::KeywordFor, "Expect 'for' keyword.")?; // Consume 'for'
 
         let identifier = self.consume_identifier("Expect loop variable name after 'for'.")?;
@@ -86,7 +79,7 @@ impl Parser {
     }
 
     // This function assumes the "let" keyword has NOT been consumed by its caller.
-    fn let_declaration(&mut self) -> Result<Expression, String> {
+    fn let_declaration(&mut self) -> Result<Expression, EasyScriptError> {
         self.consume(&Token::KeywordLet, "Expect 'let' keyword.")?; // Consume 'let'
 
         let identifier = self.consume_identifier("Expect variable name after 'let'.")?;
@@ -99,7 +92,7 @@ impl Parser {
     }
 
     // Expression ::= IfExpression | ForExpression | FunctionDefinition | LetDeclaration | AssignmentExpression
-    fn expression(&mut self) -> Result<Expression, String> {
+    fn expression(&mut self) -> Result<Expression, EasyScriptError> {
         if self.check(&Token::KeywordIf) {
             return self.if_expression();
         }
@@ -117,7 +110,7 @@ impl Parser {
     }
 
     // This function assumes the "if" keyword has NOT been consumed by its caller.
-    fn if_expression(&mut self) -> Result<Expression, String> {
+    fn if_expression(&mut self) -> Result<Expression, EasyScriptError> {
         self.consume(&Token::KeywordIf, "Expect 'if' keyword.")?; // Consume 'if'
         let condition = self.expression()?; // Parse condition
 
@@ -139,7 +132,7 @@ impl Parser {
     }
 
     // AssignmentExpression ::= LValue "=" Assignment | TermExpression
-    fn assignment(&mut self) -> Result<Expression, String> {
+    fn assignment(&mut self) -> Result<Expression, EasyScriptError> {
         let expr = self.term()?;
 
         if self.match_tokens(&[Token::Equal]) {
@@ -162,14 +155,14 @@ impl Parser {
                         value: Box::new(value),
                     }),
                 },
-                _ => Err(format!("Invalid assignment target: {:?}", expr)),
+                _ => Err(EasyScriptError::ParserError { message: format!("Invalid assignment target: {:?}", expr), location: None }), // <-- 修改这里
             }
         }
         Ok(expr)
     }
     
     // TermExpression ::= FactorExpression { ( "+" | "-" | "<" | "<=" | ... ) FactorExpression }
-    fn term(&mut self) -> Result<Expression, String> {
+    fn term(&mut self) -> Result<Expression, EasyScriptError> {
         let mut expr = self.factor()?;
         while let Some(op) = self.match_term_op() {
             let right = self.factor()?;
@@ -179,7 +172,7 @@ impl Parser {
     }
     
     // FactorExpression ::= UnaryExpression { ( "*" | "/" | "%" | "<<" | ... ) UnaryExpression }
-    fn factor(&mut self) -> Result<Expression, String> {
+    fn factor(&mut self) -> Result<Expression, EasyScriptError> {
         let mut expr = self.unary()?;
         while let Some(op) = self.match_factor_op() {
             let right = self.unary()?;
@@ -189,7 +182,7 @@ impl Parser {
     }
 
     // UnaryExpression ::= "-" UnaryExpression | CallAndAccessExpression
-    fn unary(&mut self) -> Result<Expression, String> {
+    fn unary(&mut self) -> Result<Expression, EasyScriptError> {
         if self.match_tokens(&[Token::Minus]) {
             let op = UnaryOperator::Negate;
             let expr = self.unary()?; // Recursive call to unary
@@ -199,7 +192,7 @@ impl Parser {
     }
 
     // CallAndAccessExpression ::= PrimaryExpression { "(" Arguments? ")" | "[" Expression "]" | "." Identifier }
-    fn call_and_access(&mut self) -> Result<Expression, String> {
+    fn call_and_access(&mut self) -> Result<Expression, EasyScriptError> {
         let mut expr = self.primary()?;
 
         loop {
@@ -227,7 +220,7 @@ impl Parser {
     }
 
     // PrimaryExpression ::= Literal | Identifier | "(" Expression ")" | ListLiteral | MapLiteral | BlockExpression
-    fn primary(&mut self) -> Result<Expression, String> {
+    fn primary(&mut self) -> Result<Expression, EasyScriptError> {
         if self.match_tokens(&[Token::KeywordFalse]) { return Ok(Expression::Literal(LiteralValue::Boolean(false))); }
         if self.match_tokens(&[Token::KeywordTrue]) { return Ok(Expression::Literal(LiteralValue::Boolean(true))); }
         if self.match_tokens(&[Token::KeywordNil]) { return Ok(Expression::Literal(LiteralValue::Nil)); }
@@ -272,14 +265,14 @@ impl Parser {
             }
         }
 
-        Err(format!("Expected expression, found {:?}", self.peek()))
+        Err(EasyScriptError::ParserError { message: format!("Expected expression, found {:?}", self.peek()), location: None })
     }
 
     // --- 辅助方法 ---
     
     // Parse a block `{...}`
     // Assumes the opening brace has already been consumed.
-    fn block(&mut self) -> Result<Block, String> {
+    fn block(&mut self) -> Result<Block, EasyScriptError> {
         let mut expressions = Vec::new();
 
         while !self.check(&Token::RightBrace) && !self.is_at_end() {
@@ -293,7 +286,7 @@ impl Parser {
     }
     
     // Parse a list literal `[...]`
-    fn list_literal(&mut self) -> Result<Expression, String> {
+    fn list_literal(&mut self) -> Result<Expression, EasyScriptError> {
         let mut elements = Vec::new();
         if !self.check(&Token::RightBracket) {
             loop {
@@ -308,7 +301,7 @@ impl Parser {
     }
 
     // Parse a map literal `{...}`
-    fn map_literal(&mut self) -> Result<Expression, String> {
+    fn map_literal(&mut self) -> Result<Expression, EasyScriptError> {
         let mut pairs = Vec::new();
         if !self.check(&Token::RightBrace) {
             loop {
@@ -327,7 +320,7 @@ impl Parser {
     }
 
     // Finish parsing a function call
-    fn finish_call(&mut self, callee: Expression) -> Result<Expression, String> {
+    fn finish_call(&mut self, callee: Expression) -> Result<Expression, EasyScriptError> {
         let mut args = Vec::new();
         if !self.check(&Token::RightParen) {
             loop {
@@ -375,13 +368,13 @@ impl Parser {
         op
     }
     
-    fn consume_identifier(&mut self, message: &str) -> Result<String, String> {
+    fn consume_identifier(&mut self, message: &str) -> Result<String, EasyScriptError> {
         if let Token::Identifier(name) = self.peek() {
             let owned_name = name.clone();
             self.advance();
             Ok(owned_name)
         } else {
-            Err(format!("{} Found {:?}", message, self.peek()))
+            Err(EasyScriptError::ParserError { message: format!("{} Found {:?}", message, self.peek()), location: None })
         }
     }
 
@@ -395,11 +388,11 @@ impl Parser {
         false
     }
     
-    fn consume(&mut self, token_type: &Token, message: &str) -> Result<&Token, String> {
+    fn consume(&mut self, token_type: &Token, message: &str) -> Result<&Token, EasyScriptError> {
         if self.check(token_type) {
             Ok(self.advance())
         } else {
-            Err(format!("{} Found {:?}", message, self.peek()))
+            Err(EasyScriptError::ParserError { message: format!("{} Found {:?}", message, self.peek()), location: None })
         }
     }
 

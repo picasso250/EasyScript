@@ -1,6 +1,6 @@
 // Test that inner scope assignments do not leak to outer scope
 
-a = "outer";
+let a = "outer";
 
 {
   a = "inner"; // Create a new 'a' that shadows the outer one

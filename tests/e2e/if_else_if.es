@@ -1,7 +1,7 @@
 // Test chained if-else if-else statement
 
-a = 10;
-result = if a == 1 {
+let a = 10;
+let result = if a == 1 {
   "one";
 } else if a > 5 {
   "greater than five";

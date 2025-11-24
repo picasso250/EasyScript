@@ -2,16 +2,9 @@ use crate::ast::{Block, Expression, LiteralValue};
 use crate::environment::{Environment, EnvironmentRef};
 use crate::value::Value;
 use std::rc::Rc;
+use crate::error::{EasyScriptError, SourceLocation};
 
-// Represents an error that occurs during program execution.
-#[derive(Debug, Clone)]
-pub struct RuntimeError(pub String);
 
-impl std::fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Runtime Error: {}", self.0)
-    }
-}
 
 pub struct Interpreter {
     // The environment is now a reference-counted pointer to a mutable Environment.
@@ -27,7 +20,7 @@ impl Interpreter {
     }
 
     /// The main entry point to run a program.
-    pub fn run(&mut self, block: &Block) -> Result<Value, RuntimeError> {
+    pub fn run(&mut self, block: &Block) -> Result<Value, EasyScriptError> {
         // Clone the Rc to avoid a mutable borrow conflict with self.environment
         let env_clone = Rc::clone(&self.environment);
         self.execute_block(block, &env_clone)
@@ -39,7 +32,7 @@ impl Interpreter {
         &mut self,
         block: &Block,
         env: &EnvironmentRef,
-    ) -> Result<Value, RuntimeError> {
+    ) -> Result<Value, EasyScriptError> {
         // Temporarily set the interpreter's environment to the new one.
         let previous_env = Rc::clone(&self.environment);
         self.environment = Rc::clone(env);
@@ -55,7 +48,7 @@ impl Interpreter {
     }
 
     /// The core evaluation logic that dispatches based on expression type.
-    pub fn evaluate(&mut self, expression: &Expression) -> Result<Value, RuntimeError> {
+    pub fn evaluate(&mut self, expression: &Expression) -> Result<Value, EasyScriptError> {
         match expression {
             Expression::Literal(val) => self.evaluate_literal(val),
 
@@ -90,7 +83,7 @@ impl Interpreter {
                 .environment
                 .borrow()
                 .get(name)
-                .map_err(|e| RuntimeError(e)),
+                .map_err(|e| EasyScriptError::RuntimeError { message: e, location: None }),
 
             Expression::FunctionDef(func_obj) => Ok(Value::Function(func_obj.clone())), // Moved here
 
@@ -117,9 +110,11 @@ impl Interpreter {
                                 .borrow_mut()
                                 .assign(name, value_to_assign.clone());
                         } else {
-                            self.environment
-                                .borrow_mut()
-                                .assign(name, value_to_assign.clone());
+                            // If not found, it's an error: variables must be declared with 'let' first.
+                            return Err(EasyScriptError::RuntimeError {
+                                message: format!("Cannot assign to undeclared variable '{}'. Use 'let' to declare it.", name),
+                                location: None,
+                            });
                         }
 
                         Ok(value_to_assign)
@@ -148,16 +143,16 @@ impl Interpreter {
                                                     if index < mut_list.len() {
                                                         mut_list[index] = value_to_assign.clone();
                                                     } else {
-                                                        modification_err = Some(RuntimeError(format!(
-                                                            "List index out of bounds for assignment: {}",
-                                                            idx_float
-                                                        )));
+                                                        modification_err = Some(EasyScriptError::RuntimeError {
+                                                        message: format!("List index out of bounds for assignment: {}", idx_float),
+                                                        location: None,
+                                                    });
                                                     }
                                                 } else {
-                                                    modification_err = Some(RuntimeError(format!(
-                                                        "List index must be a number for assignment. Got: {}",
-                                                        key_val
-                                                    )));
+                                                    modification_err = Some(EasyScriptError::RuntimeError {
+                                                        message: format!("List index must be a number for assignment. Got: {}", key_val),
+                                                        location: None,
+                                                    });
                                                 }
                                             }
                                             Value::Map(map_rc) => {
@@ -165,10 +160,10 @@ impl Interpreter {
                                                 mut_map.insert(key_val, value_to_assign.clone());
                                             }
                                             _ => {
-                                                modification_err = Some(RuntimeError(format!(
-                                                    "Cannot index non-list/map variable '{}'",
-                                                    target_name
-                                                )));
+                                                modification_err = Some(EasyScriptError::RuntimeError {
+                                                    message: format!("Cannot index non-list/map variable '{}'", target_name),
+                                                    location: None,
+                                                });
                                             }
                                         }
 
@@ -181,22 +176,22 @@ impl Interpreter {
                                         }
                                         Ok(value_to_assign)
                                     } else {
-                                        Err(RuntimeError(format!(
-                                            "Internal error: Variable '{}' found but could not be removed for mutation.",
-                                            target_name
-                                        )))
+                                        Err(EasyScriptError::RuntimeError {
+                                        message: format!("Internal error: Variable '{}' found but could not be removed for mutation.", target_name),
+                                        location: None,
+                                    })
                                     }
                                 } else {
-                                    Err(RuntimeError(format!(
-                                        "Undefined variable '{}' in index assignment.",
-                                        target_name
-                                    )))
+                                    Err(EasyScriptError::RuntimeError {
+                                        message: format!("Undefined variable '{}' in index assignment.", target_name),
+                                        location: None,
+                                    })
                                 }
                             }
-                            _ => Err(RuntimeError(
-                                "Nested accessor assignment (e.g., obj.prop[idx]) not yet supported."
-                                    .to_string(),
-                            )),
+                            _ => Err(EasyScriptError::RuntimeError {
+                                message: "Nested accessor assignment (e.g., obj.prop[idx]) not yet supported.".to_string(),
+                                location: None,
+                            }),
                         }
                     }
                     crate::ast::LValue::DotAccess {
@@ -224,10 +219,10 @@ impl Interpreter {
                                                 );
                                             }
                                             _ => {
-                                                modification_err = Some(RuntimeError(format!(
-                                                    "Cannot use dot access on non-map variable '{}'",
-                                                    target_name
-                                                )));
+                                                modification_err = Some(EasyScriptError::RuntimeError {
+                                                    message: format!("Cannot use dot access on non-map variable '{}'", target_name),
+                                                    location: None,
+                                                });
                                             }
                                         }
 
@@ -240,22 +235,22 @@ impl Interpreter {
                                         }
                                         Ok(value_to_assign)
                                     } else {
-                                        Err(RuntimeError(format!(
-                                            "Internal error: Variable '{}' found but could not be removed for mutation.",
-                                            target_name
-                                        )))
+                                        Err(EasyScriptError::RuntimeError {
+                                        message: format!("Internal error: Variable '{}' found but could not be removed for mutation.", target_name),
+                                        location: None,
+                                    })
                                     }
                                 } else {
-                                    Err(RuntimeError(format!(
-                                        "Undefined variable '{}' in dot assignment.",
-                                        target_name
-                                    )))
+                                    Err(EasyScriptError::RuntimeError {
+                                        message: format!("Undefined variable '{}' in dot assignment.", target_name),
+                                        location: None,
+                                    })
                                 }
                             }
-                            _ => Err(RuntimeError(
-                                "Nested accessor assignment (e.g., obj[idx].prop) not yet supported."
-                                    .to_string(),
-                            )),
+                            _ => Err(EasyScriptError::RuntimeError {
+                                message: "Nested accessor assignment (e.g., obj[idx].prop) not yet supported.".to_string(),
+                                location: None,
+                            }),
                         }
                     }
                 }
@@ -276,16 +271,16 @@ impl Interpreter {
                                     if let Some(val) = list.get(index) {
                                         Ok(val.clone())
                                     } else {
-                                        Err(RuntimeError(format!(
-                                            "List index out of bounds: {}",
-                                            idx_float
-                                        )))
+                                        Err(EasyScriptError::RuntimeError {
+                                        message: format!("List index out of bounds: {}", idx_float),
+                                        location: None,
+                                    })
                                     }
                                 } else {
-                                    Err(RuntimeError(format!(
-                                        "List index must be a number. Got: {}",
-                                        key_val
-                                    )))
+                                    Err(EasyScriptError::RuntimeError {
+                                        message: format!("List index must be a number. Got: {}", key_val),
+                                        location: None,
+                                    })
                                 }
                             }
 
@@ -295,14 +290,17 @@ impl Interpreter {
 
                                     Ok(val.clone())
                                 } else {
-                                    Err(RuntimeError(format!("Key not found in map: {}", key_val)))
+                                    Err(EasyScriptError::RuntimeError {
+                                        message: format!("Key not found in map: {}", key_val),
+                                        location: None,
+                                    })
                                 }
                             }
 
-                            _ => Err(RuntimeError(format!(
-                                "Cannot index non-list/map type: {}",
-                                target_val
-                            ))),
+                            _ => Err(EasyScriptError::RuntimeError {
+                                message: format!("Cannot index non-list/map type: {}", target_val),
+                                location: None,
+                            }),
                         }
                     }
 
@@ -316,17 +314,17 @@ impl Interpreter {
                                 if let Some(val) = map.get(&key_val) {
                                     Ok(val.clone())
                                 } else {
-                                    Err(RuntimeError(format!(
-                                        "Property '{}' not found in map.",
-                                        property_name
-                                    )))
+                                    Err(EasyScriptError::RuntimeError {
+                                        message: format!("Property '{}' not found in map.", property_name),
+                                        location: None,
+                                    })
                                 }
                             }
 
-                            _ => Err(RuntimeError(format!(
-                                "Cannot use dot access on non-map type: {}",
-                                target_val
-                            ))),
+                            _ => Err(EasyScriptError::RuntimeError {
+                                message: format!("Cannot use dot access on non-map type: {}", target_val),
+                                location: None,
+                            }),
                         }
                     }
                 }
@@ -381,10 +379,10 @@ impl Interpreter {
                             last_value = self.execute_block(body, &loop_env)?;
                         }
                     }
-                    _ => return Err(RuntimeError(format!(
-                        "Can only iterate over lists or maps. Got: {}",
-                        iterable_val
-                    ))),
+                    _ => return Err(EasyScriptError::RuntimeError {
+                        message: format!("Can only iterate over lists or maps. Got: {}", iterable_val),
+                        location: None,
+                    }),
                 }
                 Ok(last_value)
             }
@@ -396,10 +394,10 @@ impl Interpreter {
                         if let Value::Number(num) = right_val {
                             Ok(Value::Number(-num))
                         } else {
-                            Err(RuntimeError(format!(
-                                "Unary '-' operator can only be applied to numbers. Got: {}",
-                                right_val.to_string()
-                            )))
+                            Err(EasyScriptError::RuntimeError {
+                                message: format!("Unary '-' operator can only be applied to numbers. Got: {}", right_val.to_string()),
+                                location: None,
+                            })
                         }
                     }
                 }
@@ -415,15 +413,14 @@ impl Interpreter {
                 match callee_val {
                     Value::Function(func_obj) => match func_obj {
                         crate::value::FunctionObject::Native(native_fn) => {
-                            native_fn(arg_vals).map_err(|e| RuntimeError(e))
+                            native_fn(arg_vals).map_err(|e| EasyScriptError::RuntimeError { message: e, location: None })
                         }
                         crate::value::FunctionObject::User { params, body } => {
                             if params.len() != arg_vals.len() {
-                                return Err(RuntimeError(format!(
-                                    "Expected {} arguments but got {}.",
-                                    params.len(),
-                                    arg_vals.len()
-                                )));
+                                return Err(EasyScriptError::RuntimeError {
+                                    message: format!("Expected {} arguments but got {}.", params.len(), arg_vals.len()),
+                                    location: None,
+                                });
                             }
 
                             // Create a new environment for the function call
@@ -443,10 +440,10 @@ impl Interpreter {
                             self.execute_block(&body, &function_env)
                         }
                     },
-                    _ => Err(RuntimeError(format!(
-                        "Cannot call non-function value: {}",
-                        callee_val
-                    ))),
+                    _ => Err(EasyScriptError::RuntimeError {
+                        message: format!("Cannot call non-function value: {}", callee_val),
+                        location: None,
+                    }),
                 }
             }
 
@@ -468,7 +465,10 @@ impl Interpreter {
                         BinaryOperator::Mul => Ok(Value::Number(l * r)),
                         BinaryOperator::Div => {
                             if r == 0.0 {
-                                Err(RuntimeError("Division by zero.".to_string()))
+                                Err(EasyScriptError::RuntimeError {
+                                    message: "Division by zero.".to_string(),
+                                    location: None,
+                                })
                             } else {
                                 Ok(Value::Number(l / r))
                             }
@@ -477,36 +477,39 @@ impl Interpreter {
                         BinaryOperator::Lte => Ok(Value::Boolean(l <= r)),
                         BinaryOperator::Gt => Ok(Value::Boolean(l > r)),
                         BinaryOperator::Gte => Ok(Value::Boolean(l >= r)),
-                        _ => Err(RuntimeError(format!(
-                            "Unsupported operator '{:?}' for numbers.",
-                            op
-                        ))),
+                        _ => Err(EasyScriptError::RuntimeError {
+                            message: format!("Unsupported operator '{:?}' for numbers.", op),
+                            location: None,
+                        }),
                     },
                     (Value::String(l), Value::String(r)) => match op {
                         BinaryOperator::Add => Ok(Value::String(format!("{}{}", l, r))),
-                        _ => Err(RuntimeError(format!(
-                            "Unsupported operator '{:?}' for strings.",
-                            op
-                        ))),
+                        _ => Err(EasyScriptError::RuntimeError {
+                            message: format!("Unsupported operator '{:?}' for strings.", op),
+                            location: None,
+                        }),
                     },
-                    (l, r) => Err(RuntimeError(format!(
-                        "Cannot apply operator '{:?}' to unsupported types: {} and {}",
-                        op,
-                        l.to_string(),
-                        r.to_string()
-                    ))),
+                    (l, r) => Err(EasyScriptError::RuntimeError {
+                        message: format!(
+                            "Cannot apply operator '{:?}' to unsupported types: {} and {}",
+                            op,
+                            l.to_string(),
+                            r.to_string()
+                        ),
+                        location: None,
+                    }),
                 }
             }
 
-            _ => Err(RuntimeError(format!(
-                "This expression type is not yet supported: {:?}",
-                expression
-            ))),
+            _ => Err(EasyScriptError::RuntimeError {
+                message: format!("This expression type is not yet supported: {:?}", expression),
+                location: None,
+            }),
         }
     }
 
     /// Evaluates a literal value from the AST into a runtime Value.
-    fn evaluate_literal(&self, literal: &LiteralValue) -> Result<Value, RuntimeError> {
+    fn evaluate_literal(&self, literal: &LiteralValue) -> Result<Value, EasyScriptError> {
         Ok(match literal {
             LiteralValue::Number(n) => Value::Number(*n),
             LiteralValue::String(s) => Value::String(s.clone()),

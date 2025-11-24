@@ -1,5 +1,5 @@
 // Test reading from map using dot access
 
-myMap = {"name": "Alice", "age": 30, "isValid": true};
+let myMap = {"name": "Alice", "age": 30, "isValid": true};
 myMap.age;
 // expect: 30

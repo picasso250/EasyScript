@@ -64,18 +64,20 @@ fn run_test_file(path: PathBuf) {
     let expectation = expectation.expect("Test file must have an '// expect: ...' comment.");
 
     // 1. Lexer
-    let lexer = Lexer::new(&code);
-    let (tokens, lexer_errors) = lexer.scan_tokens();
-    if !lexer_errors.is_empty() {
-        panic!("\nLexer errors in {:?}:\n{:?}", path, lexer_errors);
-    }
+    let tokens = match Lexer::new(&code).scan_tokens() {
+        Ok(t) => t,
+        Err(e) => {
+            panic!("\nLexer errors in {:?}:\n{}", path, e);
+        }
+    };
 
     // 2. Parser
-    let parser = Parser::new(tokens);
-    let (ast, parser_errors) = parser.parse();
-    if !parser_errors.is_empty() {
-        panic!("\nParser errors in {:?}:\n{:?}", path, parser_errors);
-    }
+    let ast = match Parser::new(tokens).parse() {
+        Ok(ast) => ast,
+        Err(e) => {
+            panic!("\nParser errors in {:?}:\n{}", path, e);
+        }
+    };
 
     // 3. Interpreter
     let mut interpreter = Interpreter::new();
