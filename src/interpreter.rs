@@ -152,9 +152,9 @@ impl Interpreter {
                                                         mut_list[index] = value_to_assign.clone();
                                                     } else {
                                                         modification_err = Some(EasyScriptError::RuntimeError {
-                                                        message: format!("List index out of bounds for assignment: {}", idx_float),
-                                                        location: None,
-                                                    });
+                                                            message: format!("List index out of bounds for assignment: {}", idx_float),
+                                                            location: None,
+                                                        });
                                                     }
                                                 } else {
                                                     modification_err = Some(EasyScriptError::RuntimeError {
