@@ -35,7 +35,11 @@ impl Interpreter {
 
     /// Executes a block of expressions in a given environment.
     /// For nested blocks, a new enclosed environment is created.
-    fn execute_block(&mut self, block: &Block, env: &EnvironmentRef) -> Result<Value, RuntimeError> {
+    fn execute_block(
+        &mut self,
+        block: &Block,
+        env: &EnvironmentRef,
+    ) -> Result<Value, RuntimeError> {
         // Temporarily set the interpreter's environment to the new one.
         let previous_env = Rc::clone(&self.environment);
         self.environment = Rc::clone(env);
@@ -82,217 +86,237 @@ impl Interpreter {
                 self.execute_block(block, &new_env)
             }
 
-                        Expression::Identifier(name) => self.environment.borrow().get(name).map_err(|e| RuntimeError(e)),
+            Expression::Identifier(name) => self
+                .environment
+                .borrow()
+                .get(name)
+                .map_err(|e| RuntimeError(e)),
 
-            
+            Expression::Assignment { lvalue, value } => {
+                let value_to_assign = self.evaluate(value)?;
 
-                        Expression::Assignment { lvalue, value } => {
+                match lvalue {
+                    crate::ast::LValue::Identifier(name) => {
+                        self.environment
+                            .borrow_mut()
+                            .assign(name, value_to_assign.clone());
 
-                            let value_to_assign = self.evaluate(value)?;
+                        Ok(value_to_assign)
+                    }
 
-                            
+                    crate::ast::LValue::IndexAccess { target, key } => {
+                        let value_to_assign = self.evaluate(value)?;
+                        let key_val = self.evaluate(key)?;
 
-                            match lvalue {
+                        match &**target {
+                            Expression::Identifier(ref target_name) => {
+                                if let Some(target_env_ref) =
+                                    Environment::find_environment(&self.environment, target_name)
+                                {
+                                    let mut target_env = target_env_ref.borrow_mut();
 
-                                crate::ast::LValue::Identifier(name) => {
-
-                                    self.environment
-
-                                        .borrow_mut()
-
-                                        .assign(name, value_to_assign.clone());
-
-                                    Ok(value_to_assign)
-
-                                }
-
-                                crate::ast::LValue::IndexAccess { target, key } => {
-                                    let value_to_assign = self.evaluate(value)?;
-                                    let key_val = self.evaluate(key)?;
-
-                                    match &**target {
-                                        Expression::Identifier(ref target_name) => {
-                                            if let Some(target_env_ref) = Environment::find_environment(&self.environment, target_name) {
-                                                let mut target_env = target_env_ref.borrow_mut();
-                                                
-                                                if let Some(mut existing_val) = target_env.values.remove(target_name.as_str()) {
-                                                    let mut modification_err = None;
-                                                    match &mut existing_val {
-                                                        Value::List(list_rc) => {
-                                                            let mut_list = Rc::make_mut(list_rc);
-                                                            if let Value::Number(idx_float) = key_val {
-                                                                let index = idx_float as usize;
-                                                                if index < mut_list.len() {
-                                                                    mut_list[index] = value_to_assign.clone();
-                                                                } else {
-                                                                    modification_err = Some(RuntimeError(format!("List index out of bounds for assignment: {}", idx_float)));
-                                                                }
-                                                            } else {
-                                                                modification_err = Some(RuntimeError(format!("List index must be a number for assignment. Got: {}", key_val)));
-                                                            }
-                                                        }
-                                                        Value::Map(map_rc) => {
-                                                            let mut_map = Rc::make_mut(map_rc);
-                                                            mut_map.insert(key_val, value_to_assign.clone());
-                                                        }
-                                                        _ => {
-                                                            modification_err = Some(RuntimeError(format!("Cannot index non-list/map variable '{}'", target_name)));
-                                                        }
+                                    if let Some(mut existing_val) =
+                                        target_env.values.remove(target_name.as_str())
+                                    {
+                                        let mut modification_err = None;
+                                        match &mut existing_val {
+                                            Value::List(list_rc) => {
+                                                let mut_list = Rc::make_mut(list_rc);
+                                                if let Value::Number(idx_float) = key_val {
+                                                    let index = idx_float as usize;
+                                                    if index < mut_list.len() {
+                                                        mut_list[index] = value_to_assign.clone();
+                                                    } else {
+                                                        modification_err = Some(RuntimeError(format!(
+                                                            "List index out of bounds for assignment: {}",
+                                                            idx_float
+                                                        )));
                                                     }
-                                                    
-                                                    target_env.values.insert(target_name.clone(), existing_val);
-                                                    
-                                                    if let Some(err) = modification_err {
-                                                        return Err(err);
-                                                    }
-                                                    Ok(value_to_assign)
                                                 } else {
-                                                    Err(RuntimeError(format!("Internal error: Variable '{}' found but could not be removed for mutation.", target_name)))
+                                                    modification_err = Some(RuntimeError(format!(
+                                                        "List index must be a number for assignment. Got: {}",
+                                                        key_val
+                                                    )));
                                                 }
-                                            } else {
-                                                Err(RuntimeError(format!("Undefined variable '{}' in index assignment.", target_name)))
+                                            }
+                                            Value::Map(map_rc) => {
+                                                let mut_map = Rc::make_mut(map_rc);
+                                                mut_map.insert(key_val, value_to_assign.clone());
+                                            }
+                                            _ => {
+                                                modification_err = Some(RuntimeError(format!(
+                                                    "Cannot index non-list/map variable '{}'",
+                                                    target_name
+                                                )));
                                             }
                                         }
-                                        _ => Err(RuntimeError("Nested accessor assignment (e.g., obj.prop[idx]) not yet supported.".to_string())),
+
+                                        target_env
+                                            .values
+                                            .insert(target_name.clone(), existing_val);
+
+                                        if let Some(err) = modification_err {
+                                            return Err(err);
+                                        }
+                                        Ok(value_to_assign)
+                                    } else {
+                                        Err(RuntimeError(format!(
+                                            "Internal error: Variable '{}' found but could not be removed for mutation.",
+                                            target_name
+                                        )))
                                     }
+                                } else {
+                                    Err(RuntimeError(format!(
+                                        "Undefined variable '{}' in index assignment.",
+                                        target_name
+                                    )))
                                 }
-                                crate::ast::LValue::DotAccess { target, property_name } => {
-                                    let value_to_assign = self.evaluate(value)?;
-                                    match &**target {
-                                        Expression::Identifier(ref target_name) => {
-                                            if let Some(target_env_ref) = Environment::find_environment(&self.environment, target_name) {
-                                                let mut target_env = target_env_ref.borrow_mut();
-                                                
-                                                if let Some(mut existing_val) = target_env.values.remove(target_name.as_str()) {
-                                                    let mut modification_err = None;
-                                                    match &mut existing_val {
-                                                        Value::Map(map_rc) => {
-                                                            let mut_map = Rc::make_mut(map_rc);
-                                                            mut_map.insert(Value::String(property_name.clone()), value_to_assign.clone());
-                                                        }
-                                                        _ => {
-                                                            modification_err = Some(RuntimeError(format!("Cannot use dot access on non-map variable '{}'", target_name)));
-                                                        }
-                                                    }
+                            }
+                            _ => Err(RuntimeError(
+                                "Nested accessor assignment (e.g., obj.prop[idx]) not yet supported."
+                                    .to_string(),
+                            )),
+                        }
+                    }
+                    crate::ast::LValue::DotAccess {
+                        target,
+                        property_name,
+                    } => {
+                        let value_to_assign = self.evaluate(value)?;
+                        match &**target {
+                            Expression::Identifier(ref target_name) => {
+                                if let Some(target_env_ref) =
+                                    Environment::find_environment(&self.environment, target_name)
+                                {
+                                    let mut target_env = target_env_ref.borrow_mut();
 
-                                                    target_env.values.insert(target_name.clone(), existing_val);
-
-                                                    if let Some(err) = modification_err {
-                                                        return Err(err);
-                                                    }
-                                                    Ok(value_to_assign)
-                                                } else {
-                                                    Err(RuntimeError(format!("Internal error: Variable '{}' found but could not be removed for mutation.", target_name)))
-                                                }
-                                            } else {
-                                                Err(RuntimeError(format!("Undefined variable '{}' in dot assignment.", target_name)))
+                                    if let Some(mut existing_val) =
+                                        target_env.values.remove(target_name.as_str())
+                                    {
+                                        let mut modification_err = None;
+                                        match &mut existing_val {
+                                            Value::Map(map_rc) => {
+                                                let mut_map = Rc::make_mut(map_rc);
+                                                mut_map.insert(
+                                                    Value::String(property_name.clone()),
+                                                    value_to_assign.clone(),
+                                                );
+                                            }
+                                            _ => {
+                                                modification_err = Some(RuntimeError(format!(
+                                                    "Cannot use dot access on non-map variable '{}'",
+                                                    target_name
+                                                )));
                                             }
                                         }
-                                        _ => Err(RuntimeError("Nested accessor assignment (e.g., obj[idx].prop) not yet supported.".to_string())),
-                                    }
-                                }
 
+                                        target_env
+                                            .values
+                                            .insert(target_name.clone(), existing_val);
+
+                                        if let Some(err) = modification_err {
+                                            return Err(err);
+                                        }
+                                        Ok(value_to_assign)
+                                    } else {
+                                        Err(RuntimeError(format!(
+                                            "Internal error: Variable '{}' found but could not be removed for mutation.",
+                                            target_name
+                                        )))
+                                    }
+                                } else {
+                                    Err(RuntimeError(format!(
+                                        "Undefined variable '{}' in dot assignment.",
+                                        target_name
+                                    )))
+                                }
+                            }
+                            _ => Err(RuntimeError(
+                                "Nested accessor assignment (e.g., obj[idx].prop) not yet supported."
+                                    .to_string(),
+                            )),
+                        }
+                    }
+                }
+            }
+
+            Expression::Accessor { target, access } => {
+                let target_val = self.evaluate(target)?;
+
+                match access {
+                    crate::ast::AccessType::Index(key_expr) => {
+                        let key_val = self.evaluate(key_expr)?;
+
+                        match target_val {
+                            Value::List(list) => {
+                                if let Value::Number(idx_float) = key_val {
+                                    let index = idx_float as usize; // Cast to usize for list indexing
+
+                                    if let Some(val) = list.get(index) {
+                                        Ok(val.clone())
+                                    } else {
+                                        Err(RuntimeError(format!(
+                                            "List index out of bounds: {}",
+                                            idx_float
+                                        )))
+                                    }
+                                } else {
+                                    Err(RuntimeError(format!(
+                                        "List index must be a number. Got: {}",
+                                        key_val
+                                    )))
+                                }
                             }
 
-                        }
+                            Value::Map(map) => {
+                                if let Some(val) = map.get(&key_val) {
+                                    // Uses Value's PartialEq for key lookup
 
-            
-
-                        Expression::Accessor { target, access } => {
-
-                            let target_val = self.evaluate(target)?;
-
-            
-
-                            match access {
-
-                                crate::ast::AccessType::Index(key_expr) => {
-
-                                    let key_val = self.evaluate(key_expr)?;
-
-                                    match target_val {
-
-                                        Value::List(list) => {
-
-                                            if let Value::Number(idx_float) = key_val {
-
-                                                let index = idx_float as usize; // Cast to usize for list indexing
-
-                                                if let Some(val) = list.get(index) {
-
-                                                    Ok(val.clone())
-
-                                                } else {
-
-                                                    Err(RuntimeError(format!("List index out of bounds: {}", idx_float)))
-
-                                                }
-
-                                            } else {
-
-                                                Err(RuntimeError(format!("List index must be a number. Got: {}", key_val)))
-
-                                            }
-
-                                        }
-
-                                        Value::Map(map) => {
-
-                                            if let Some(val) = map.get(&key_val) { // Uses Value's PartialEq for key lookup
-
-                                                Ok(val.clone())
-
-                                            } else {
-
-                                                Err(RuntimeError(format!("Key not found in map: {}", key_val)))
-
-                                            }
-
-                                        }
-
-                                        _ => Err(RuntimeError(format!("Cannot index non-list/map type: {}", target_val)))
-
-                                    }
-
+                                    Ok(val.clone())
+                                } else {
+                                    Err(RuntimeError(format!("Key not found in map: {}", key_val)))
                                 }
-
-                                crate::ast::AccessType::Dot(property_name) => {
-
-                                    match target_val {
-
-                                        Value::Map(map) => {
-
-                                            // Dot access uses a string literal as a key
-
-                                            let key_val = Value::String(property_name.clone());
-
-                                            if let Some(val) = map.get(&key_val) {
-
-                                                Ok(val.clone())
-
-                                            } else {
-
-                                                Err(RuntimeError(format!("Property '{}' not found in map.", property_name)))
-
-                                            }
-
-                                        }
-
-                                        _ => Err(RuntimeError(format!("Cannot use dot access on non-map type: {}", target_val)))
-
-                                    }
-
-                                }
-
                             }
 
+                            _ => Err(RuntimeError(format!(
+                                "Cannot index non-list/map type: {}",
+                                target_val
+                            ))),
                         }
+                    }
 
-            
+                    crate::ast::AccessType::Dot(property_name) => {
+                        match target_val {
+                            Value::Map(map) => {
+                                // Dot access uses a string literal as a key
 
-                        Expression::If { condition, then_block, else_branch } => {
+                                let key_val = Value::String(property_name.clone());
 
-                            let condition_val = self.evaluate(condition)?;
+                                if let Some(val) = map.get(&key_val) {
+                                    Ok(val.clone())
+                                } else {
+                                    Err(RuntimeError(format!(
+                                        "Property '{}' not found in map.",
+                                        property_name
+                                    )))
+                                }
+                            }
+
+                            _ => Err(RuntimeError(format!(
+                                "Cannot use dot access on non-map type: {}",
+                                target_val
+                            ))),
+                        }
+                    }
+                }
+            }
+
+            Expression::If {
+                condition,
+                then_block,
+                else_branch,
+            } => {
+                let condition_val = self.evaluate(condition)?;
 
                 let is_truthy = match condition_val {
                     Value::Boolean(b) => b,
