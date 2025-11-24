@@ -97,9 +97,19 @@ impl Interpreter {
 
                 match lvalue {
                     crate::ast::LValue::Identifier(name) => {
-                        self.environment
-                            .borrow_mut()
-                            .assign(name, value_to_assign.clone());
+                        // Find the environment where the variable is defined.
+                        // If not found, define it in the current environment.
+                        if let Some(target_env_ref) =
+                            Environment::find_environment(&self.environment, name)
+                        {
+                            target_env_ref
+                                .borrow_mut()
+                                .assign(name, value_to_assign.clone());
+                        } else {
+                            self.environment
+                                .borrow_mut()
+                                .assign(name, value_to_assign.clone());
+                        }
 
                         Ok(value_to_assign)
                     }
@@ -333,6 +343,39 @@ impl Interpreter {
                 } else {
                     Ok(Value::Nil) // No else branch, condition false, so return nil
                 }
+            }
+
+            Expression::For { identifier, iterable, body } => {
+                let iterable_val = self.evaluate(iterable)?;
+                let mut last_value = Value::Nil; // For loop typically returns nil or the last evaluated expression
+
+                match iterable_val {
+                    Value::List(list) => {
+                        for element in list.iter() {
+                            let loop_env = Environment::new_enclosed(&self.environment);
+                            {
+                                let mut borrowed_env = loop_env.borrow_mut();
+                                borrowed_env.assign(identifier, element.clone());
+                            }
+                            last_value = self.execute_block(body, &loop_env)?;
+                        }
+                    }
+                    Value::Map(map) => {
+                        for (key, _value) in map.iter() { // Iterate over keys for maps
+                            let loop_env = Environment::new_enclosed(&self.environment);
+                            {
+                                let mut borrowed_env = loop_env.borrow_mut();
+                                borrowed_env.assign(identifier, key.clone());
+                            }
+                            last_value = self.execute_block(body, &loop_env)?;
+                        }
+                    }
+                    _ => return Err(RuntimeError(format!(
+                        "Can only iterate over lists or maps. Got: {}",
+                        iterable_val
+                    ))),
+                }
+                Ok(last_value)
             }
 
             Expression::Unary { op, expr } => {

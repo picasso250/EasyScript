@@ -69,15 +69,33 @@ impl Parser {
         ))
     }
 
+    // This function assumes the "for" keyword has NOT been consumed by its caller.
+    fn for_expression(&mut self) -> Result<Expression, String> {
+        self.consume(&Token::KeywordFor, "Expect 'for' keyword.")?; // Consume 'for'
+
+        let identifier = self.consume_identifier("Expect loop variable name after 'for'.")?;
+
+        self.consume(&Token::KeywordIn, "Expect 'in' keyword after loop variable.")?;
+
+        let iterable = Box::new(self.expression()?); // Parse the iterable expression
+
+        self.consume(&Token::LeftBrace, "Expect '{' before for loop body.")?;
+        let body = self.block()?; // Parse the loop body as a block
+
+        Ok(Expression::For { identifier, iterable, body })
+    }
+
     // Expression ::= IfExpression | ForExpression | FunctionDefinition | AssignmentExpression
     fn expression(&mut self) -> Result<Expression, String> {
         if self.check(&Token::KeywordIf) {
             return self.if_expression();
         }
         if self.check(&Token::KeywordFun) {
-            return self.function_definition(); // Handle function definitions
+            return self.function_definition();
         }
-        // TODO: Add `for` keyword checks here in the future
+        if self.check(&Token::KeywordFor) { // Handle for loops
+            return self.for_expression();
+        }
         
         self.assignment()
     }
