@@ -67,7 +67,6 @@ impl Interpreter {
                 let value_to_assign = self.evaluate(value)?;
                 match &lvalue {
                     crate::ast::LValue::Identifier(name) => {
-                        // Use borrow_mut() to get mutable access inside the RefCell.
                         self.environment
                             .borrow_mut()
                             .assign(name, value_to_assign.clone());
@@ -76,6 +75,26 @@ impl Interpreter {
                     _ => Err(RuntimeError(
                         "Complex assignments are not yet supported.".to_string(),
                     )),
+                }
+            }
+
+            Expression::If { condition, then_block, else_branch } => {
+                let condition_val = self.evaluate(condition)?;
+
+                let is_truthy = match condition_val {
+                    Value::Boolean(b) => b,
+                    Value::Nil => false,
+                    _ => true, // All other values are truthy
+                };
+
+                if is_truthy {
+                    let env_clone = Rc::clone(&self.environment); // Fix: Clone Rc to avoid borrow conflict
+                    self.execute_block(then_block, &env_clone)
+                } else if let Some(else_expr) = else_branch {
+                    // The else_branch can be another IfExpression or a BlockExpression
+                    self.evaluate(else_expr) // Evaluate the else expression (which could be a block or another if)
+                } else {
+                    Ok(Value::Nil) // No else branch, condition false, so return nil
                 }
             }
 

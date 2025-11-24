@@ -4,7 +4,7 @@ use easyscript_rs::{Lexer, Parser, Interpreter};
 fn main() {
     println!("EasyScript 解释器启动...");
     
-    // 使用一个简单的数字字面量来测试完整的流程
+    // Using a simple numeric literal for a clean state
     let source = r#"
         42.0
     "#;
@@ -20,7 +20,7 @@ fn main() {
         lexer_errors.iter().for_each(|e| println!("{}", e));
         return;
     }
-
+    
     // 2. 语法分析 (Parser)
     let parser = Parser::new(tokens);
     let (ast_root, parser_errors) = parser.parse();

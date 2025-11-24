@@ -35,7 +35,9 @@ impl Parser {
 
     // Expression ::= IfExpression | ForExpression | FunctionDefinition | AssignmentExpression
     fn expression(&mut self) -> Result<Expression, String> {
-        if self.match_tokens(&[Token::KeywordIf]) {
+        // If it starts with 'if', parse it as an IfExpression.
+        // The if_expression() function will consume the 'if' keyword itself.
+        if self.check(&Token::KeywordIf) {
             return self.if_expression();
         }
         // TODO: Add `for` and `fun` keyword checks here in the future
@@ -43,25 +45,25 @@ impl Parser {
         self.assignment()
     }
 
+    // This function assumes the "if" keyword has NOT been consumed by its caller.
     fn if_expression(&mut self) -> Result<Expression, String> {
-        let condition = self.expression()?;
+        self.consume(&Token::KeywordIf, "Expect 'if' keyword.")?; // Consume 'if'
+        let condition = self.expression()?; // Parse condition
+
         self.consume(&Token::LeftBrace, "Expect '{' before if condition body.")?;
         let then_block = self.block()?;
 
         let mut else_branch = None;
-        if self.match_tokens(&[Token::KeywordElse]) {
-            if self.match_tokens(&[Token::KeywordIf]) {
-                // Handle else-if chain
-                let else_if_expr = self.if_expression()?;
-                else_branch = Some(Box::new(else_if_expr));
-            } else {
-                // Handle else block
-                self.consume(&Token::LeftBrace, "Expect '{' before else body.")?;
+        if self.match_tokens(&[Token::KeywordElse]) { // Consumes 'else'
+            // After 'else', the EBNF allows another IfExpression or a Block.
+            if self.check(&Token::KeywordIf) { // Check for 'if' in 'else if'
+                else_branch = Some(Box::new(self.if_expression()?)); // Recursively call if_expression
+            } else { // It's an else block
+                self.consume(&Token::LeftBrace, "Expect '{' after else.")?;
                 let else_block = self.block()?;
                 else_branch = Some(Box::new(Expression::Block(else_block)));
             }
         }
-
         Ok(Expression::If { condition: Box::new(condition), then_block, else_branch })
     }
 
@@ -70,7 +72,8 @@ impl Parser {
         let expr = self.term()?;
 
         if self.match_tokens(&[Token::Equal]) {
-            let value = self.assignment()?; // Assignment is right-associative
+            // The right-hand side of an assignment can be any Expression.
+            let value = self.expression()?; // FIX: Allow any expression on the RHS
             
             // Convert the left-hand expression to an LValue
             return match expr {
