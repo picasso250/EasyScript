@@ -57,8 +57,32 @@ impl fmt::Display for Value {
                 }
             },
             Value::String(s) => write!(f, "{}", s), // Note: No quotes
-            Value::List(_) => write!(f, "<list>"),
-            Value::Map(_) => write!(f, "<map>"),
+            Value::List(list) => {
+                write!(f, "[")?;
+                let mut first = true;
+                for item in list.iter() {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", item)?;
+                    first = false;
+                }
+                write!(f, "]")
+            }
+            Value::Map(map) => {
+                write!(f, "{{")?;
+                let mut first = true;
+                // No need to collect keys into a Vec for sorting at this stage,
+                // as Value does not implement Ord. Iterate directly.
+                for (key, val) in map.iter() {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}: {}", key, val)?;
+                    first = false;
+                }
+                write!(f, "}}")
+            }
             Value::Function(_) => write!(f, "<function>"),
         }
     }

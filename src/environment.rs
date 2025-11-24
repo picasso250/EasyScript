@@ -12,7 +12,7 @@ pub type EnvironmentRef = Rc<RefCell<Environment>>;
 #[derive(Debug, PartialEq)]
 pub struct Environment {
     parent: Option<EnvironmentRef>,
-    values: HashMap<String, Value>,
+    pub values: HashMap<String, Value>, // Made public for direct mutation after finding environment
 }
 
 impl Environment {
@@ -52,5 +52,23 @@ impl Environment {
 
         // If not found in any scope, it's an error.
         Err(format!("Undefined variable '{}'", name))
+    }
+
+    /// Finds the EnvironmentRef where a variable is defined, searching recursively up through parent scopes.
+    /// Returns None if the variable is not found in any scope.
+    pub fn find_environment(rc_self: &EnvironmentRef, name: &str) -> Option<EnvironmentRef> {
+        {
+            // Borrow the RefCell immutably first to check for key existence.
+            let self_borrow = rc_self.borrow();
+            if self_borrow.values.contains_key(name) {
+                return Some(Rc::clone(rc_self));
+            }
+        } // The immutable borrow is dropped here.
+
+        // If not found in current, check parent.
+        if let Some(parent_ref) = &rc_self.borrow().parent {
+            return Environment::find_environment(parent_ref, name);
+        }
+        None
     }
 }
