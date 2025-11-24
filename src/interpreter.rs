@@ -1,10 +1,8 @@
 use crate::ast::{Block, Expression, LiteralValue};
 use crate::environment::{Environment, EnvironmentRef};
+use crate::error::EasyScriptError;
 use crate::value::Value;
 use std::rc::Rc;
-use crate::error::EasyScriptError;
-
-
 
 pub struct Interpreter {
     // The environment is now a reference-counted pointer to a mutable Environment.
@@ -79,11 +77,15 @@ impl Interpreter {
                 self.execute_block(block, &new_env)
             }
 
-            Expression::Identifier(name) => self
-                .environment
-                .borrow()
-                .get(name)
-                .map_err(|e| EasyScriptError::RuntimeError { message: e, location: None }),
+            Expression::Identifier(name) => {
+                self.environment
+                    .borrow()
+                    .get(name)
+                    .map_err(|e| EasyScriptError::RuntimeError {
+                        message: e,
+                        location: None,
+                    })
+            }
 
             Expression::FunctionDef { params, body } => {
                 Ok(Value::Function(crate::value::FunctionObject::User {
@@ -91,7 +93,7 @@ impl Interpreter {
                     body: std::rc::Rc::new(body.clone()),
                     defined_env: Rc::clone(&self.environment), // 捕获当前环境
                 }))
-            },
+            }
 
             // 新增: Let 表达式的处理
             Expression::Let { identifier, value } => {
@@ -100,7 +102,7 @@ impl Interpreter {
                     .borrow_mut()
                     .assign(identifier, assigned_value.clone());
                 Ok(assigned_value) // let 表达式返回被赋的值
-            },
+            }
 
             Expression::Assignment { lvalue, value } => {
                 let value_to_assign = self.evaluate(value)?;
@@ -278,13 +280,19 @@ impl Interpreter {
                                         Ok(val.clone())
                                     } else {
                                         Err(EasyScriptError::RuntimeError {
-                                        message: format!("List index out of bounds: {}", idx_float),
-                                        location: None,
-                                    })
+                                            message: format!(
+                                                "List index out of bounds: {}",
+                                                idx_float
+                                            ),
+                                            location: None,
+                                        })
                                     }
                                 } else {
                                     Err(EasyScriptError::RuntimeError {
-                                        message: format!("List index must be a number. Got: {}", key_val),
+                                        message: format!(
+                                            "List index must be a number. Got: {}",
+                                            key_val
+                                        ),
                                         location: None,
                                     })
                                 }
@@ -321,14 +329,20 @@ impl Interpreter {
                                     Ok(val.clone())
                                 } else {
                                     Err(EasyScriptError::RuntimeError {
-                                        message: format!("Property '{}' not found in map.", property_name),
+                                        message: format!(
+                                            "Property '{}' not found in map.",
+                                            property_name
+                                        ),
                                         location: None,
                                     })
                                 }
                             }
 
                             _ => Err(EasyScriptError::RuntimeError {
-                                message: format!("Cannot use dot access on non-map type: {}", target_val),
+                                message: format!(
+                                    "Cannot use dot access on non-map type: {}",
+                                    target_val
+                                ),
                                 location: None,
                             }),
                         }
@@ -360,7 +374,11 @@ impl Interpreter {
                 }
             }
 
-            Expression::For { identifier, iterable, body } => {
+            Expression::For {
+                identifier,
+                iterable,
+                body,
+            } => {
                 let iterable_val = self.evaluate(iterable)?;
                 let mut last_value = Value::Nil; // For loop typically returns nil or the last evaluated expression
 
@@ -376,7 +394,8 @@ impl Interpreter {
                         }
                     }
                     Value::Map(map) => {
-                        for (key, _value) in map.iter() { // Iterate over keys for maps
+                        for (key, _value) in map.iter() {
+                            // Iterate over keys for maps
                             let loop_env = Environment::new_enclosed(&self.environment);
                             {
                                 let mut borrowed_env = loop_env.borrow_mut();
@@ -385,10 +404,15 @@ impl Interpreter {
                             last_value = self.execute_block(body, &loop_env)?;
                         }
                     }
-                    _ => return Err(EasyScriptError::RuntimeError {
-                        message: format!("Can only iterate over lists or maps. Got: {}", iterable_val),
-                        location: None,
-                    }),
+                    _ => {
+                        return Err(EasyScriptError::RuntimeError {
+                            message: format!(
+                                "Can only iterate over lists or maps. Got: {}",
+                                iterable_val
+                            ),
+                            location: None,
+                        })
+                    }
                 }
                 Ok(last_value)
             }
@@ -401,7 +425,10 @@ impl Interpreter {
                             Ok(Value::Number(-num))
                         } else {
                             Err(EasyScriptError::RuntimeError {
-                                message: format!("Unary '-' operator can only be applied to numbers. Got: {}", right_val.to_string()),
+                                message: format!(
+                                    "Unary '-' operator can only be applied to numbers. Got: {}",
+                                    right_val.to_string()
+                                ),
                                 location: None,
                             })
                         }
@@ -418,13 +445,23 @@ impl Interpreter {
 
                 match callee_val {
                     Value::Function(func_obj) => match func_obj {
-                        crate::value::FunctionObject::Native(native_fn) => {
-                            native_fn(arg_vals).map_err(|e| EasyScriptError::RuntimeError { message: e, location: None })
-                        }
-                        crate::value::FunctionObject::User { params, body, defined_env } => {
+                        crate::value::FunctionObject::Native(native_fn) => native_fn(arg_vals)
+                            .map_err(|e| EasyScriptError::RuntimeError {
+                                message: e,
+                                location: None,
+                            }),
+                        crate::value::FunctionObject::User {
+                            params,
+                            body,
+                            defined_env,
+                        } => {
                             if params.len() != arg_vals.len() {
                                 return Err(EasyScriptError::RuntimeError {
-                                    message: format!("Expected {} arguments but got {}.", params.len(), arg_vals.len()),
+                                    message: format!(
+                                        "Expected {} arguments but got {}.",
+                                        params.len(),
+                                        arg_vals.len()
+                                    ),
                                     location: None,
                                 });
                             }
@@ -503,7 +540,6 @@ impl Interpreter {
                     }),
                 }
             }
-
         }
     }
 
