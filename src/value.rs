@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc; // 使用 Rc 来进行引用计数，便于共享
+use crate::environment::EnvironmentRef;
 
 // 定义函数签名，用于表示原生的 Rust 函数
 // (Vec<Value>) -> Result<Value, String> 表示接受一列参数，返回一个 Result
@@ -11,11 +12,11 @@ pub type NativeFunction = fn(Vec<Value>) -> Result<Value, String>;
 pub enum FunctionObject {
     // Rust 原生函数
     Native(NativeFunction),
-    // EasyScript 用户函数 (暂时简化，不包含环境/闭包信息)
+    // EasyScript 用户函数 (现在包含闭包环境信息)
     User {
         params: Vec<String>,
         body: Rc<super::ast::Block>, // 使用 Rc 共享 Block
-        // TODO: Environment/Closure
+        defined_env: EnvironmentRef, // 捕获函数定义时的环境
     },
 }
 

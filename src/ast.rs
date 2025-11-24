@@ -1,5 +1,5 @@
 
-use crate::value::FunctionObject;
+
 
 // 核心的抽象语法树节点：一切皆 Expression
 #[derive(Debug, Clone)]
@@ -34,7 +34,10 @@ pub enum Expression {
     // III. 控制流 / 函数 / 赋值
     // ----------------------------------------------------
     // 函数定义 (FunctionDefinition)
-    FunctionDef(FunctionObject), // 直接存储 FunctionObject，简化 AST
+    FunctionDef {
+        params: Vec<String>,
+        body: Block,
+    },
 
     // 新增: Let 表达式用于变量声明
     Let {

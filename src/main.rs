@@ -1,6 +1,5 @@
 // main.rs now acts as a consumer of the `easyscript_rs` library
 use easyscript_rs::{Lexer, Parser, Interpreter};
-use easyscript_rs::error::EasyScriptError; // <-- 新增
 
 fn main() {
     println!("EasyScript 解释器启动...");

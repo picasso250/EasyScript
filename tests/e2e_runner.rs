@@ -4,7 +4,6 @@
 use easyscript_rs::interpreter::Interpreter;
 use easyscript_rs::lexer::Lexer;
 use easyscript_rs::parser::Parser;
-use easyscript_rs::value::Value;
 
 use glob::glob;
 use std::fs;

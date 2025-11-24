@@ -2,7 +2,7 @@ use crate::ast::{Block, Expression, LiteralValue};
 use crate::environment::{Environment, EnvironmentRef};
 use crate::value::Value;
 use std::rc::Rc;
-use crate::error::{EasyScriptError, SourceLocation};
+use crate::error::EasyScriptError;
 
 
 
@@ -85,7 +85,13 @@ impl Interpreter {
                 .get(name)
                 .map_err(|e| EasyScriptError::RuntimeError { message: e, location: None }),
 
-            Expression::FunctionDef(func_obj) => Ok(Value::Function(func_obj.clone())), // Moved here
+            Expression::FunctionDef { params, body } => {
+                Ok(Value::Function(crate::value::FunctionObject::User {
+                    params: params.clone(),
+                    body: std::rc::Rc::new(body.clone()),
+                    defined_env: Rc::clone(&self.environment), // 捕获当前环境
+                }))
+            },
 
             // 新增: Let 表达式的处理
             Expression::Let { identifier, value } => {
@@ -415,7 +421,7 @@ impl Interpreter {
                         crate::value::FunctionObject::Native(native_fn) => {
                             native_fn(arg_vals).map_err(|e| EasyScriptError::RuntimeError { message: e, location: None })
                         }
-                        crate::value::FunctionObject::User { params, body } => {
+                        crate::value::FunctionObject::User { params, body, defined_env } => {
                             if params.len() != arg_vals.len() {
                                 return Err(EasyScriptError::RuntimeError {
                                     message: format!("Expected {} arguments but got {}.", params.len(), arg_vals.len()),
@@ -423,12 +429,9 @@ impl Interpreter {
                                 });
                             }
 
-                            // Create a new environment for the function call
-                            // This new environment *captures* the environment where the function was defined (closure)
-                            // For simplicity, for now, we're creating an enclosed environment from the *current* interpreter environment.
-                            // A proper closure implementation would capture the environment where func_obj was *created*.
-                            // TODO: Implement proper closure by capturing the environment where FunctionObject::User was created.
-                            let function_env = Environment::new_enclosed(&self.environment);
+                            // Create a new environment for the function call,
+                            // based on the environment where the function was defined (closure)
+                            let function_env = Environment::new_enclosed(&defined_env); // 使用 defined_env
                             {
                                 let mut borrowed_env = function_env.borrow_mut();
                                 for (param_name, arg_val) in params.iter().zip(arg_vals.into_iter())
@@ -501,10 +504,6 @@ impl Interpreter {
                 }
             }
 
-            _ => Err(EasyScriptError::RuntimeError {
-                message: format!("This expression type is not yet supported: {:?}", expression),
-                location: None,
-            }),
         }
     }
 

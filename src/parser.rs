@@ -1,6 +1,6 @@
 use crate::ast::{AccessType, BinaryOperator, Block, Expression, LValue, LiteralValue, UnaryOperator};
 use crate::token::{Literal, Token};
-use crate::error::{EasyScriptError, SourceLocation};
+use crate::error::EasyScriptError;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -51,15 +51,13 @@ impl Parser {
         self.consume(&Token::RightParen, "Expect ')' after parameters.")?;
 
         self.consume(&Token::LeftBrace, "Expect '{' before function body.")?;
-        let body_block = self.block()?; // Parse the function body as a block
+        let body = self.block()?; // Parse the function body as a block
 
-        // Create a FunctionObject and wrap it in an Expression::FunctionDef
-        Ok(Expression::FunctionDef(
-            crate::value::FunctionObject::User {
-                params,
-                body: std::rc::Rc::new(body_block),
-            },
-        ))
+        // Create an Expression::FunctionDef { params, body }
+        Ok(Expression::FunctionDef {
+            params,
+            body,
+        })
     }
 
     // This function assumes the "for" keyword has NOT been consumed by its caller.
@@ -421,14 +419,5 @@ impl Parser {
     fn peek(&self) -> &Token { &self.tokens[self.current] }
     fn previous(&self) -> &Token { &self.tokens[self.current - 1] }
 
-    fn synchronize(&mut self) {
-        self.advance();
-        while !self.is_at_end() {
-            if matches!(self.previous(), &Token::Semicolon) { return; }
-            match self.peek() {
-                Token::KeywordFun | Token::KeywordFor | Token::KeywordIf => return,
-                _ => { self.advance(); }
-            };
-        }
-    }
+
 }
