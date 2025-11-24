@@ -45,18 +45,19 @@ impl Parser {
 
     fn if_expression(&mut self) -> Result<Expression, String> {
         let condition = self.expression()?;
+        self.consume(&Token::LeftBrace, "Expect '{' before if condition body.")?;
         let then_block = self.block()?;
 
         let mut else_branch = None;
         if self.match_tokens(&[Token::KeywordElse]) {
             if self.match_tokens(&[Token::KeywordIf]) {
-                // 处理 else-if 链 (if_expression is also an Expression)
+                // Handle else-if chain
                 let else_if_expr = self.if_expression()?;
                 else_branch = Some(Box::new(else_if_expr));
             } else {
-                // 处理 else 块
+                // Handle else block
+                self.consume(&Token::LeftBrace, "Expect '{' before else body.")?;
                 let else_block = self.block()?;
-                // Wrap the block in an Expression::Block variant
                 else_branch = Some(Box::new(Expression::Block(else_block)));
             }
         }
@@ -69,9 +70,9 @@ impl Parser {
         let expr = self.term()?;
 
         if self.match_tokens(&[Token::Equal]) {
-            let value = self.assignment()?; // 赋值是右结合的
+            let value = self.assignment()?; // Assignment is right-associative
             
-            // 将左侧的 Expression 转换为 LValue
+            // Convert the left-hand expression to an LValue
             return match expr {
                 Expression::Identifier(name) => Ok(Expression::Assignment { 
                     lvalue: LValue::Identifier(name), 
@@ -117,7 +118,7 @@ impl Parser {
     fn unary(&mut self) -> Result<Expression, String> {
         if self.match_tokens(&[Token::Minus]) {
             let op = UnaryOperator::Negate;
-            let expr = self.unary()?; // 递归调用 unary
+            let expr = self.unary()?; // Recursive call to unary
             return Ok(Expression::Unary { op, expr: Box::new(expr) });
         }
         self.call_and_access()
@@ -203,11 +204,9 @@ impl Parser {
     // --- 辅助方法 ---
     
     // Parse a block `{...}`
+    // Assumes the opening brace has already been consumed.
     fn block(&mut self) -> Result<Block, String> {
         let mut expressions = Vec::new();
-        
-        // consume opening brace which was already matched
-        self.consume(&Token::LeftBrace, "Expect '{' to start a block.")?;
 
         while !self.check(&Token::RightBrace) && !self.is_at_end() {
             expressions.push(self.expression()?);

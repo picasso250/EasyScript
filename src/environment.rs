@@ -1,30 +1,56 @@
 use crate::value::Value;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
-// A simple environment using a HashMap.
-// For proper scoping, we'd later need a chain of environments (parent pointer).
-#[derive(Debug, Clone)]
+// A type alias for a reference-counted, mutable environment.
+// Rc allows multiple owners (e.g., child scopes pointing to a parent).
+// RefCell allows mutable borrowing even with multiple owners.
+pub type EnvironmentRef = Rc<RefCell<Environment>>;
+
+// The Environment struct now holds an optional parent pointer.
+#[derive(Debug, PartialEq)]
 pub struct Environment {
+    parent: Option<EnvironmentRef>,
     values: HashMap<String, Value>,
 }
 
 impl Environment {
-    pub fn new() -> Self {
-        Environment {
+    /// Creates a new, top-level (global) environment.
+    pub fn new() -> EnvironmentRef {
+        Rc::new(RefCell::new(Environment {
+            parent: None,
             values: HashMap::new(),
-        }
+        }))
     }
 
-    // Define a new variable or re-assign an existing one.
+    /// Creates a new, enclosed environment that points to a parent.
+    pub fn new_enclosed(parent: &EnvironmentRef) -> EnvironmentRef {
+        Rc::new(RefCell::new(Environment {
+            parent: Some(Rc::clone(parent)),
+            values: HashMap::new(),
+        }))
+    }
+
+    /// Defines or re-assigns a variable in the *current* scope.
+    /// This allows for variable shadowing.
     pub fn assign(&mut self, name: &str, value: Value) {
         self.values.insert(name.to_string(), value);
     }
 
-    // Get the value of a variable.
+    /// Gets a variable's value, searching recursively up through parent scopes.
     pub fn get(&self, name: &str) -> Result<Value, String> {
-        self.values
-            .get(name)
-            .cloned()
-            .ok_or_else(|| format!("Undefined variable '{}'", name))
+        // Try to get from the current scope first.
+        if let Some(value) = self.values.get(name) {
+            return Ok(value.clone());
+        }
+
+        // If not found, try the parent scope.
+        if let Some(parent_ref) = &self.parent {
+            return parent_ref.borrow().get(name);
+        }
+
+        // If not found in any scope, it's an error.
+        Err(format!("Undefined variable '{}'", name))
     }
 }
