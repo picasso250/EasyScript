@@ -233,7 +233,7 @@ impl Parser {
             }
         }
         self.consume(&Token::RightBracket, "Expect ']' after list elements.")?;
-        Ok(Expression::Literal(LiteralValue::List(elements)))
+        Ok(Expression::ListLiteral(elements))
     }
 
     // Parse a map literal `{...}`
@@ -252,7 +252,7 @@ impl Parser {
             }
         }
         self.consume(&Token::RightBrace, "Expect '}' after map entries.")?;
-        Ok(Expression::Literal(LiteralValue::Map(pairs)))
+        Ok(Expression::MapLiteral(pairs))
     }
 
     // Finish parsing a function call

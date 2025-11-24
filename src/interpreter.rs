@@ -55,6 +55,27 @@ impl Interpreter {
         match expression {
             Expression::Literal(val) => self.evaluate_literal(val),
 
+            Expression::ListLiteral(expr_list) => {
+                let mut values = Vec::new();
+                for expr in expr_list {
+                    values.push(self.evaluate(expr)?);
+                }
+                Ok(Value::List(Rc::new(values)))
+            }
+
+            Expression::MapLiteral(expr_pairs) => {
+                let mut map = std::collections::HashMap::new();
+                for (key_expr, value_expr) in expr_pairs {
+                    let key = self.evaluate(key_expr)?;
+                    let value = self.evaluate(value_expr)?;
+                    // For now, assume keys are simple types that implement Hash and Eq.
+                    // Value::List and Value::Map are not hashable by default, so inserting them here
+                    // would cause a panic or incorrect behavior if they were allowed as keys.
+                    map.insert(key, value);
+                }
+                Ok(Value::Map(Rc::new(map)))
+            }
+
             Expression::Block(block) => {
                 // Create a new scope for the block and execute it.
                 let new_env = Environment::new_enclosed(&self.environment);
@@ -62,6 +83,7 @@ impl Interpreter {
             }
 
             Expression::Identifier(name) => self.environment.borrow().get(name).map_err(|e| RuntimeError(e)),
+
 
             Expression::Assignment { lvalue, value } => {
                 let value_to_assign = self.evaluate(value)?;
@@ -176,11 +198,6 @@ impl Interpreter {
             LiteralValue::String(s) => Value::String(s.clone()),
             LiteralValue::Boolean(b) => Value::Boolean(*b),
             LiteralValue::Nil => Value::Nil,
-            _ => {
-                return Err(RuntimeError(
-                    "This literal type is not yet supported.".to_string(),
-                ))
-            }
         })
     }
 }

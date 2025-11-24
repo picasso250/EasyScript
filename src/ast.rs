@@ -11,6 +11,10 @@ pub enum Expression {
     Identifier(String),    // 变量引用
     Block(Block),          // 新增: 表达式块 { expr1; expr2 }
 
+    // 新增：列表和字典字面量，现在它们是顶层表达式
+    ListLiteral(Vec<Expression>),      // 列表字面量 [1, 2+3]
+    MapLiteral(Vec<(Expression, Expression)>), // 字典字面量 {k: v, ...}
+
     // ----------------------------------------------------
     // II. 运算表达式 (Operations)
     // ----------------------------------------------------
@@ -76,8 +80,6 @@ pub enum LiteralValue {
     String(String),
     Boolean(bool),
     Nil,
-    List(Vec<Expression>), // 列表字面量 [1, 2+3]
-    Map(Vec<(Expression, Expression)>), // 字典字面量 {k: v, ...}
 }
 
 // 辅助结构：表达式块

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::Arc; // 使用 Arc 来进行引用计数，便于共享
+use std::rc::Rc; // 使用 Rc 来进行引用计数，便于共享
 
 // 定义函数签名，用于表示原生的 Rust 函数
 // (Vec<Value>) -> Result<Value, String> 表示接受一列参数，返回一个 Result
@@ -14,7 +14,7 @@ pub enum FunctionObject {
     // EasyScript 用户函数 (暂时简化，不包含环境/闭包信息)
     User {
         params: Vec<String>,
-        body: Arc<super::ast::Block>, // 使用 Arc 共享 Block
+        body: Rc<super::ast::Block>, // 使用 Rc 共享 Block
         // TODO: Environment/Closure
     },
 }
@@ -36,10 +36,10 @@ pub enum Value {
     Boolean(bool),
     Number(f64),
     String(String),
-    // List 是可变集合，使用 Arc<Mutex<Vec<Value>>> 实现 (这里先简化为 Vec)
-    List(Arc<Vec<Value>>), 
-    // Map/Dict/Object，使用 Arc<Mutex<HashMap<Value, Value>>> 实现 (这里先简化为 HashMap)
-    Map(Arc<HashMap<Value, Value>>),
+    // List 是可变集合，使用 Rc<Vec<Value>> 实现
+    List(Rc<Vec<Value>>), 
+    // Map/Dict/Object，使用 Rc<HashMap<Value, Value>> 实现
+    Map(Rc<HashMap<Value, Value>>),
     Function(FunctionObject),
 }
 
@@ -92,7 +92,7 @@ impl Hash for Value {
             Value::Number(n) => n.to_bits().hash(state), 
             Value::String(s) => s.hash(state),
             // List/Map 默认不可作为 Hash Key，若强行要用，需要特殊的标识符或引用 Hash
-            _ => { /* 不可作为 Key */ }
+            _ => { /* List/Map are not hashable by default, so we do nothing here */ }
         }
     }
 }
