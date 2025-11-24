@@ -351,6 +351,51 @@ impl Interpreter {
                 }
             }
 
+            Expression::Call { callee, args } => {
+                let callee_val = self.evaluate(callee)?;
+                let mut arg_vals = Vec::new();
+                for arg_expr in args {
+                    arg_vals.push(self.evaluate(arg_expr)?);
+                }
+
+                match callee_val {
+                    Value::Function(func_obj) => match func_obj {
+                        crate::value::FunctionObject::Native(native_fn) => {
+                            native_fn(arg_vals).map_err(|e| RuntimeError(e))
+                        }
+                        crate::value::FunctionObject::User { params, body } => {
+                            if params.len() != arg_vals.len() {
+                                return Err(RuntimeError(format!(
+                                    "Expected {} arguments but got {}.",
+                                    params.len(),
+                                    arg_vals.len()
+                                )));
+                            }
+
+                            // Create a new environment for the function call
+                            // This new environment *captures* the environment where the function was defined (closure)
+                            // For simplicity, for now, we're creating an enclosed environment from the *current* interpreter environment.
+                            // A proper closure implementation would capture the environment where func_obj was *created*.
+                            // TODO: Implement proper closure by capturing the environment where FunctionObject::User was created.
+                            let function_env = Environment::new_enclosed(&self.environment);
+                            {
+                                let mut borrowed_env = function_env.borrow_mut();
+                                for (param_name, arg_val) in params.iter().zip(arg_vals.into_iter())
+                                {
+                                    borrowed_env.assign(param_name, arg_val);
+                                }
+                            }
+                            // Execute the function body in the new environment
+                            self.execute_block(&body, &function_env)
+                        }
+                    },
+                    _ => Err(RuntimeError(format!(
+                        "Cannot call non-function value: {}",
+                        callee_val
+                    ))),
+                }
+            }
+
             Expression::Binary { left, op, right } => {
                 let left_val = self.evaluate(left)?;
                 let right_val = self.evaluate(right)?;
@@ -398,6 +443,8 @@ impl Interpreter {
                     ))),
                 }
             }
+
+            Expression::FunctionDef(func_obj) => Ok(Value::Function(func_obj.clone())),
 
             _ => Err(RuntimeError(format!(
                 "This expression type is not yet supported: {:?}",

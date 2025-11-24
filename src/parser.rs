@@ -33,14 +33,51 @@ impl Parser {
 
     // --- 语法规则实现 ---
 
+    // This function assumes the "fun" keyword has NOT been consumed by its caller.
+    fn function_definition(&mut self) -> Result<Expression, String> {
+        self.consume(&Token::KeywordFun, "Expect 'fun' keyword.")?; // Consume 'fun'
+
+        // Optional: Function Name (for named functions, though EasyScript is anonymous functions for now)
+        // For now, we'll assume anonymous functions directly assigned or passed around.
+        // If we want named functions, we'd parse an Identifier here.
+
+        self.consume(&Token::LeftParen, "Expect '(' after 'fun' for parameters.")?;
+
+        let mut params = Vec::new();
+        if !self.check(&Token::RightParen) {
+            loop {
+                // 参数必须是标识符
+                let param_name = self.consume_identifier("Expect parameter name.")?;
+                params.push(param_name);
+
+                if !self.match_tokens(&[Token::Comma]) {
+                    break;
+                }
+            }
+        }
+        self.consume(&Token::RightParen, "Expect ')' after parameters.")?;
+
+        self.consume(&Token::LeftBrace, "Expect '{' before function body.")?;
+        let body_block = self.block()?; // Parse the function body as a block
+
+        // Create a FunctionObject and wrap it in an Expression::FunctionDef
+        Ok(Expression::FunctionDef(
+            crate::value::FunctionObject::User {
+                params,
+                body: std::rc::Rc::new(body_block),
+            },
+        ))
+    }
+
     // Expression ::= IfExpression | ForExpression | FunctionDefinition | AssignmentExpression
     fn expression(&mut self) -> Result<Expression, String> {
-        // If it starts with 'if', parse it as an IfExpression.
-        // The if_expression() function will consume the 'if' keyword itself.
         if self.check(&Token::KeywordIf) {
             return self.if_expression();
         }
-        // TODO: Add `for` and `fun` keyword checks here in the future
+        if self.check(&Token::KeywordFun) {
+            return self.function_definition(); // Handle function definitions
+        }
+        // TODO: Add `for` keyword checks here in the future
         
         self.assignment()
     }
