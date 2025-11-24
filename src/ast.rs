@@ -35,7 +35,13 @@ pub enum Expression {
     // ----------------------------------------------------
     // 函数定义 (FunctionDefinition)
     FunctionDef(FunctionObject), // 直接存储 FunctionObject，简化 AST
-    
+
+    // 新增: Let 表达式用于变量声明
+    Let {
+        identifier: String,
+        value: Box<Expression>,
+    },
+
     // 赋值 (AssignmentExpression)
     Assignment {
         lvalue: LValue, 

@@ -92,6 +92,17 @@ impl Interpreter {
                 .get(name)
                 .map_err(|e| RuntimeError(e)),
 
+            Expression::FunctionDef(func_obj) => Ok(Value::Function(func_obj.clone())), // Moved here
+
+            // 新增: Let 表达式的处理
+            Expression::Let { identifier, value } => {
+                let assigned_value = self.evaluate(value)?;
+                self.environment // Assigns in the current environment, allowing shadowing
+                    .borrow_mut()
+                    .assign(identifier, assigned_value.clone());
+                Ok(assigned_value) // let 表达式返回被赋的值
+            },
+
             Expression::Assignment { lvalue, value } => {
                 let value_to_assign = self.evaluate(value)?;
 
@@ -486,8 +497,6 @@ impl Interpreter {
                     ))),
                 }
             }
-
-            Expression::FunctionDef(func_obj) => Ok(Value::Function(func_obj.clone())),
 
             _ => Err(RuntimeError(format!(
                 "This expression type is not yet supported: {:?}",

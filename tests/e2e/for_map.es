@@ -1,7 +1,12 @@
-result = "";
-my_map = {"a": 1, "b": 2};
+sum_values = 0;
+my_map = {"a": 10, "b": 20};
 for k in my_map {
-    result = result + k;
+    if k == "a" {
+        sum_values = sum_values + 10;
+    };
+    if k == "b" {
+        sum_values = sum_values + 20;
+    };
 }
-result;
-// expect: ab
+sum_values;
+// expect: 30

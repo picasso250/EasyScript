@@ -13,6 +13,7 @@ lazy_static::lazy_static! {
         m.insert("true", Token::KeywordTrue);
         m.insert("false", Token::KeywordFalse);
         m.insert("nil", Token::KeywordNil);
+        m.insert("let", Token::KeywordLet); // 添加这一行
         m
     };
 }

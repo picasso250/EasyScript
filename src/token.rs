@@ -22,6 +22,7 @@ pub enum Token {
     KeywordTrue,
     KeywordFalse,
     KeywordNil,
+    KeywordLet,
 
     // --- 运算符 (Operators) ---
     // 算术

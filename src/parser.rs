@@ -85,7 +85,20 @@ impl Parser {
         Ok(Expression::For { identifier, iterable, body })
     }
 
-    // Expression ::= IfExpression | ForExpression | FunctionDefinition | AssignmentExpression
+    // This function assumes the "let" keyword has NOT been consumed by its caller.
+    fn let_declaration(&mut self) -> Result<Expression, String> {
+        self.consume(&Token::KeywordLet, "Expect 'let' keyword.")?; // Consume 'let'
+
+        let identifier = self.consume_identifier("Expect variable name after 'let'.")?;
+
+        self.consume(&Token::Equal, "Expect '=' after variable name in let declaration.")?;
+
+        let value = Box::new(self.expression()?); // Parse the initial value expression
+
+        Ok(Expression::Let { identifier, value })
+    }
+
+    // Expression ::= IfExpression | ForExpression | FunctionDefinition | LetDeclaration | AssignmentExpression
     fn expression(&mut self) -> Result<Expression, String> {
         if self.check(&Token::KeywordIf) {
             return self.if_expression();
@@ -93,8 +106,11 @@ impl Parser {
         if self.check(&Token::KeywordFun) {
             return self.function_definition();
         }
-        if self.check(&Token::KeywordFor) { // Handle for loops
+        if self.check(&Token::KeywordFor) {
             return self.for_expression();
+        }
+        if self.check(&Token::KeywordLet) { // Handle let declarations
+            return self.let_declaration();
         }
         
         self.assignment()
