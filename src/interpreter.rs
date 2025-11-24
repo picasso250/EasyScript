@@ -38,7 +38,29 @@ impl Interpreter {
     pub fn evaluate(&mut self, expression: &Expression) -> Result<Value, RuntimeError> {
         match expression {
             Expression::Literal(val) => self.evaluate_literal(val),
-            // Other expression types like Binary, Identifier, etc., will be added here.
+
+            Expression::Identifier(name) => self
+                .environment
+                .get(name)
+                .map_err(|e| RuntimeError(e)),
+
+            Expression::Assignment { lvalue, value } => {
+                let value_to_assign = self.evaluate(value)?;
+                
+                // For now, only handle simple identifier assignment.
+                match &lvalue {
+                    crate::ast::LValue::Identifier(name) => {
+                        self.environment.assign(name, value_to_assign.clone());
+                        // Assignment evaluates to the assigned value.
+                        Ok(value_to_assign)
+                    }
+                    _ => Err(RuntimeError(
+                        "Complex assignments are not yet supported.".to_string(),
+                    )),
+                }
+            }
+
+            // Other expression types like Binary, etc., will be added here.
             _ => Err(RuntimeError(
                 "This expression type is not yet supported.".to_string(),
             )),
