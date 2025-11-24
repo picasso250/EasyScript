@@ -7,3 +7,6 @@ edition = "2021"
 # 像 pest, lalrpop 或更复杂的并发库时，我们会在这里添加。
 [dependencies]
 lazy_static = "1.4.0" # 新增：用于关键字 HashMap
+
+[dev-dependencies]
+glob = "0.3.0"

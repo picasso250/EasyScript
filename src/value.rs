@@ -43,6 +43,28 @@ pub enum Value {
     Function(FunctionObject),
 }
 
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Nil => write!(f, "nil"),
+            Value::Boolean(b) => write!(f, "{}", b),
+            Value::Number(n) => {
+                // Handle integer display without .0
+                if n.fract() == 0.0 {
+                    write!(f, "{}", *n as i64)
+                } else {
+                    write!(f, "{}", n)
+                }
+            },
+            Value::String(s) => write!(f, "{}", s), // Note: No quotes
+            Value::List(_) => write!(f, "<list>"),
+            Value::Map(_) => write!(f, "<map>"),
+            Value::Function(_) => write!(f, "<function>"),
+        }
+    }
+}
+
+
 // 为了能作为 Map 的键，Value 必须实现 Eq 和 Hash (这里暂时只实现部分类型)
 // 生产级实现中，List 和 Map 的 Hash/Eq 实现会更复杂，这里先仅为编译通过。
 impl PartialEq for Value {
