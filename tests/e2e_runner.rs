@@ -114,21 +114,21 @@ fn run_test_file(path: PathBuf) {
     match result {
         Ok(value) => {
             let actual_value_str = format!("{}", value);
-            println!("   Success: resulted in value: {}", actual_value_str);
 
             if let Some(expected_value) = expectation.value {
                 assert_eq!(
                     actual_value_str, expected_value,
-                    "Value expectation mismatch!"
+                    "Value expectation mismatch for {:?}!", path
                 );
             }
 
             if let Some(expected_stdout) = expectation.stdout {
                 assert_eq!(
                     captured_stdout, expected_stdout,
-                    "Stdout expectation mismatch!"
+                    "Stdout expectation mismatch for {:?}!", path
                 );
             }
+            println!("   PASS: {:?}", path.display());
         }
         Err(e) => {
             panic!(
