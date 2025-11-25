@@ -26,6 +26,30 @@ impl Interpreter {
                     native::print_fn,
                 ))),
             );
+            env.assign(
+                "len",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::len_fn,
+                ))),
+            );
+            env.assign(
+                "type",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::type_fn,
+                ))),
+            );
+            env.assign(
+                "string",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::string_fn,
+                ))),
+            );
+            env.assign(
+                "number",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::number_fn,
+                ))),
+            );
         } // env 借用在此处结束
 
         interpreter
@@ -543,12 +567,23 @@ impl Interpreter {
                             location: None,
                         }),
                     },
+                    (Value::List(l), Value::List(r)) => match op {
+                        BinaryOperator::Add => {
+                            let mut new_list = (**l).to_vec();
+                            new_list.extend_from_slice(&**r);
+                            Ok(Value::List(Rc::new(new_list)))
+                        }
+                        _ => Err(EasyScriptError::RuntimeError {
+                            message: format!("Unsupported operator '{:?}' for lists.", op),
+                            location: None,
+                        }),
+                    },
                     (l, r) => Err(EasyScriptError::RuntimeError {
                         message: format!(
                             "Cannot apply operator '{:?}' to unsupported types: {} and {}",
                             op,
-                            l.to_string(),
-                            r.to_string()
+                            l.type_of(),
+                            r.type_of()
                         ),
                         location: None,
                     }),

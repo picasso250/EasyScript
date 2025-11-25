@@ -89,6 +89,20 @@ impl fmt::Display for Value {
     }
 }
 
+impl Value {
+    pub fn type_of(&self) -> &'static str {
+        match self {
+            Value::Nil => "nil",
+            Value::Boolean(_) => "boolean",
+            Value::Number(_) => "number",
+            Value::String(_) => "string",
+            Value::List(_) => "list",
+            Value::Map(_) => "map",
+            Value::Function(_) => "function",
+        }
+    }
+}
+
 
 // 为了能作为 Map 的键，Value 必须实现 Eq 和 Hash (这里暂时只实现部分类型)
 // 生产级实现中，List 和 Map 的 Hash/Eq 实现会更复杂，这里先仅为编译通过。
