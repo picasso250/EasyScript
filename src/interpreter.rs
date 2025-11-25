@@ -187,7 +187,7 @@ impl Interpreter {
                             });
                         }
 
-                        Ok(value_to_assign)
+                        Ok(Value::Nil) // 赋值表达式返回 nil
                     }
 
                     crate::ast::LValue::IndexAccess { target, key } => {
@@ -437,7 +437,7 @@ impl Interpreter {
                 body,
             } => {
                 let iterable_val = self.evaluate(iterable)?;
-                let mut last_value = Value::Nil; // For loop typically returns nil or the last evaluated expression
+                let mut collected_values = Vec::new(); // Collect results here
 
                 match iterable_val {
                     Value::List(list) => {
@@ -447,7 +447,8 @@ impl Interpreter {
                                 let mut borrowed_env = loop_env.borrow_mut();
                                 borrowed_env.assign(identifier, element.clone());
                             }
-                            last_value = self.execute_block(body, &loop_env)?;
+                            let iteration_result = self.execute_block(body, &loop_env)?;
+                            collected_values.push(iteration_result);
                         }
                     }
                     Value::Map(map) => {
@@ -458,20 +459,21 @@ impl Interpreter {
                                 let mut borrowed_env = loop_env.borrow_mut();
                                 borrowed_env.assign(identifier, key.clone());
                             }
-                            last_value = self.execute_block(body, &loop_env)?;
+                            let iteration_result = self.execute_block(body, &loop_env)?;
+                            collected_values.push(iteration_result);
                         }
                     }
                     _ => {
                         return Err(EasyScriptError::RuntimeError {
                             message: format!(
                                 "Can only iterate over lists or maps. Got: {}",
-                                iterable_val
+                                iterable_val.type_of()
                             ),
                             location: None,
                         })
                     }
                 }
-                Ok(last_value)
+                Ok(Value::List(Rc::new(collected_values))) // Return the collected list
             }
 
             Expression::Unary { op, expr } => {
