@@ -16,13 +16,7 @@ impl Parser {
 
     pub fn parse(mut self) -> Result<Block, EasyScriptError> {
         let mut expressions = Vec::new();
-        eprintln!("DEBUG_PARSER: Tokens length: {}", self.tokens.len()); // DEBUG
         while !self.is_at_end() {
-            eprintln!(
-                "DEBUG_PARSER: Current: {}, Is at end: {}",
-                self.current,
-                self.is_at_end()
-            ); // DEBUG
             let expr = self.expression()?;
             let mut terminated_by_semicolon = false;
             // Allow multiple semicolons or no semicolon after the last expression
@@ -31,11 +25,6 @@ impl Parser {
             }
             expressions.push((expr, terminated_by_semicolon));
         }
-        eprintln!(
-            "DEBUG_PARSER: Final Current: {}, Is at end: {}",
-            self.current,
-            self.is_at_end()
-        ); // DEBUG
         Ok(Block { expressions })
     }
 

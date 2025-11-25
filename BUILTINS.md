@@ -64,11 +64,26 @@
 - **返回值**: `number`
 - **示例**: `"你好".len()` 返回 `2`。
 
-#### `string.trim()`
-移除字符串首尾的空白符。
-- **签名**: `string.trim()`
-- **返回值**: `string`
-- **示例**: `"  hello  ".trim()` 返回 `"hello"`。
+#### `string.contains(substring)`
+检查字符串是否包含给定的子字符串。
+- **签名**: `string.contains(substring)`
+- **返回值**: `boolean`
+- **行为**: 如果字符串包含 `substring`，则返回 `true`，否则返回 `false`。
+- **示例**: `"hello world".contains("world")` 返回 `true`。`"hello".contains("xyz")` 返回 `false`。
+
+#### `string.starts_with(prefix)`
+检查字符串是否以给定的前缀字符串开头。
+- **签名**: `string.starts_with(prefix)`
+- **返回值**: `boolean`
+- **行为**: 如果字符串以 `prefix` 开头，则返回 `true`，否则返回 `false`。
+- **示例**: `"hello world".starts_with("hello")` 返回 `true`。`"hello world".starts_with("world")` 返回 `false`。
+
+#### `string.find(substring)`
+在字符串中查找子字符串的第一个出现位置。
+- **签名**: `string.find(substring)`
+- **返回值**: `number` (索引) 或 `nil`
+- **行为**: 返回 `substring` 在字符串中第一次出现的起始索引 (0-based)。如果未找到，则返回 `nil`。
+- **示例**: `"hello world".find("world")` 返回 `6`。`"hello".find("xyz")` 返回 `nil`。
 
 ### List 方法
 

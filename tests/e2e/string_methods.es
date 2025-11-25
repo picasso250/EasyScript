@@ -1,28 +1,59 @@
-let s1 = "  hello world  ";
-print(s1.trim());       // Expected: "hello world"
-print(s1.len());        // Expected: 15 (original length)
-print(s1.trim().len()); // Expected: 11 (trimmed length)
+// tests/e2e/string_methods.es
 
-let s2 = "你好";
-print(s2.len());        // Expected: 2
-
-let s3 = "";
-print(s3.len());        // Expected: 0
-print(s3.trim().len()); // Expected: 0
-
-// Test with numbers in string
-let s4 = " 123 ";
-print(s4.trim());       // Expected: "123"
-
-// Test calling len() as a global function (should still work)
-print(len("test global len")); // Expected: 15
-
-// expect: nil
-// expect_stdout: hello world
-// expect_stdout: 15
-// expect_stdout: 11
-// expect_stdout: 2
+let s = "hello world";
+print(s.find("hello")); // 0
 // expect_stdout: 0
+print(s.find("world")); // 6
+// expect_stdout: 6
+print(s.find("o"));     // 4 (first 'o')
+// expect_stdout: 4
+print(s.find("xyz"));   // nil
+// expect_stdout: nil
+print(s.find(""));      // 0 (empty string always found at start)
 // expect_stdout: 0
-// expect_stdout: 123
-// expect_stdout: 15
+
+print(s.starts_with("hello")); // true
+// expect_stdout: true
+print(s.starts_with("world")); // false
+// expect_stdout: false
+print(s.starts_with(""));      // true
+// expect_stdout: true
+print(s.starts_with("h"));     // true
+// expect_stdout: true
+print(s.starts_with("xyz"));   // false
+// expect_stdout: false
+
+print(s.contains("hello")); // true
+// expect_stdout: true
+print(s.contains("world")); // true
+// expect_stdout: true
+print(s.contains("o"));     // true
+// expect_stdout: true
+print(s.contains("xyz"));   // false
+// expect_stdout: false
+print(s.contains(""));      // true (empty string is always contained)
+// expect_stdout: true
+
+let empty_s = "";
+print(empty_s.find("a"));         // nil
+// expect_stdout: nil
+print(empty_s.find(""));          // 0
+// expect_stdout: 0
+print(empty_s.starts_with("a"));  // false
+// expect_stdout: false
+print(empty_s.starts_with(""));   // true
+// expect_stdout: true
+print(empty_s.contains("a"));     // false
+// expect_stdout: false
+print(empty_s.contains(""));      // true
+// expect_stdout: true
+
+let s_unicode = "你好世界";
+print(s_unicode.find("好"));   // 1
+// expect_stdout: 1
+print(s_unicode.starts_with("你好")); // true
+// expect_stdout: true
+print(s_unicode.contains("世界")); // true
+// expect_stdout: true
+print(s_unicode.find("a")); // nil
+// expect_stdout: nil

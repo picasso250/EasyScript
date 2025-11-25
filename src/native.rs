@@ -17,6 +17,18 @@ pub fn init_builtin_methods_map() -> HashMap<&'static str, HashMap<&'static str,
         (Rc::new(move |args| str_trim_fn(args))) as NativeFunction,
     );
     string_methods.insert("len", (Rc::new(move |args| len_fn(args))) as NativeFunction);
+    string_methods.insert(
+        "starts_with",
+        (Rc::new(move |args| str_starts_with_fn(args))) as NativeFunction,
+    );
+    string_methods.insert(
+        "find",
+        (Rc::new(move |args| str_find_fn(args))) as NativeFunction,
+    );
+    string_methods.insert(
+        "contains",
+        (Rc::new(move |args| str_contains_fn(args))) as NativeFunction,
+    );
     methods.insert("string", string_methods);
 
     // --- List Methods ---
@@ -39,6 +51,109 @@ pub fn init_builtin_methods_map() -> HashMap<&'static str, HashMap<&'static str,
     methods.insert("map", map_methods);
 
     methods
+}
+
+// Native string starts_with method
+pub fn str_starts_with_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "starts_with() expected 2 arguments (self, prefix), but got {}",
+            args.len()
+        ));
+    }
+
+    let self_string = match &args[0] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "starts_with() method expected a string as the receiver, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    let prefix = match &args[1] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "starts_with() method expected a string as the prefix argument, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    Ok(Value::Boolean(self_string.starts_with(prefix)))
+}
+
+// Native string contains method
+pub fn str_contains_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "contains() expected 2 arguments (self, substring), but got {}",
+            args.len()
+        ));
+    }
+
+    let self_string = match &args[0] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "contains() method expected a string as the receiver, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    let substring = match &args[1] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "contains() method expected a string as the substring argument, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    Ok(Value::Boolean(self_string.contains(substring)))
+}
+
+// Native string find method
+pub fn str_find_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "find() expected 2 arguments (self, substring), but got {}",
+            args.len()
+        ));
+    }
+
+    let self_string = match &args[0] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "find() method expected a string as the receiver, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    let substring = match &args[1] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "find() method expected a string as the substring argument, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    // Use Rust's `find` method which returns `Option<usize>` (byte index)
+    if let Some(byte_index) = self_string.find(substring) {
+        // Convert byte index to character index
+        let char_index = self_string[..byte_index].chars().count();
+        Ok(Value::Number(char_index as f64))
+    } else {
+        Ok(Value::Nil)
+    }
 }
 
 // Helper function to find a built-in method (no longer needed here, will be in Interpreter)
