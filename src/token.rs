@@ -26,11 +26,11 @@ pub enum Token {
 
     // --- 运算符 (Operators) ---
     // 算术
-    Plus,       // +
-    Minus,      // -
-    Star,       // *
-    Slash,      // /
-    Percent,    // %
+    Plus,    // +
+    Minus,   // -
+    Star,    // *
+    Slash,   // /
+    Percent, // %
 
     // 位移/位运算
     ShiftLeft,  // <<
@@ -40,31 +40,31 @@ pub enum Token {
     Caret,      // ^
 
     // 关系/相等
-    Less,       // <
-    LessEqual,  // <=
-    Greater,    // >
-    GreaterEqual,// >=
-    EqualEqual, // ==
-    BangEqual,  // !=
+    Less,         // <
+    LessEqual,    // <=
+    Greater,      // >
+    GreaterEqual, // >=
+    EqualEqual,   // ==
+    BangEqual,    // !=
 
     // 逻辑
-    And,        // &&
-    Or,         // ||
+    And, // &&
+    Or,  // ||
 
     // --- 标点符号 (Punctuation) / 单个字符 ---
-    LeftParen,  // (
-    RightParen, // )
-    LeftBracket,// [
-    RightBracket,// ]
-    LeftBrace,  // {
-    RightBrace, // }
-    Comma,      // ,
-    Dot,        // .
-    Colon,      // :
-    Semicolon,  // ;
+    LeftParen,    // (
+    RightParen,   // )
+    LeftBracket,  // [
+    RightBracket, // ]
+    LeftBrace,    // {
+    RightBrace,   // }
+    Comma,        // ,
+    Dot,          // .
+    Colon,        // :
+    Semicolon,    // ;
 
     // --- 赋值 (Assignment) ---
-    Equal,      // =
+    Equal, // =
 
     // --- 文件结束 ---
     Eof,

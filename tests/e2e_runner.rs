@@ -105,7 +105,7 @@ fn run_test_file(path: PathBuf) {
     let mut captured_stdout = String::new();
     buf.read_to_string(&mut captured_stdout).unwrap();
     // Drop the buffer to restore stdout
-    drop(buf); 
+    drop(buf);
 
     // On Windows, captured stdout has \r\n, so normalize to \n
     let captured_stdout = captured_stdout.replace("\r\n", "\n");
@@ -117,11 +117,17 @@ fn run_test_file(path: PathBuf) {
             println!("   Success: resulted in value: {}", actual_value_str);
 
             if let Some(expected_value) = expectation.value {
-                assert_eq!(actual_value_str, expected_value, "Value expectation mismatch!");
+                assert_eq!(
+                    actual_value_str, expected_value,
+                    "Value expectation mismatch!"
+                );
             }
 
             if let Some(expected_stdout) = expectation.stdout {
-                assert_eq!(captured_stdout, expected_stdout, "Stdout expectation mismatch!");
+                assert_eq!(
+                    captured_stdout, expected_stdout,
+                    "Stdout expectation mismatch!"
+                );
             }
         }
         Err(e) => {

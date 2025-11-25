@@ -1,9 +1,9 @@
 // main.rs now acts as a consumer of the `easyscript_rs` library
-use easyscript_rs::{Lexer, Parser, Interpreter};
+use easyscript_rs::{Interpreter, Lexer, Parser};
 
 fn main() {
     println!("EasyScript 解释器启动...");
-    
+
     // Using a simple numeric literal for a clean state
     let source = r#"
         let a = 10;
@@ -26,7 +26,7 @@ fn main() {
             return;
         }
     };
-    
+
     // 2. 语法分析 (Parser)
     let ast_root = match Parser::new(tokens).parse() {
         Ok(ast) => ast,

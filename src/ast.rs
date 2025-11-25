@@ -1,6 +1,3 @@
-
-
-
 // 核心的抽象语法树节点：一切皆 Expression
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -12,7 +9,7 @@ pub enum Expression {
     Block(Block),          // 新增: 表达式块 { expr1; expr2 }
 
     // 新增：列表和字典字面量，现在它们是顶层表达式
-    ListLiteral(Vec<Expression>),      // 列表字面量 [1, 2+3]
+    ListLiteral(Vec<Expression>),              // 列表字面量 [1, 2+3]
     MapLiteral(Vec<(Expression, Expression)>), // 字典字面量 {k: v, ...}
 
     // ----------------------------------------------------
@@ -29,7 +26,7 @@ pub enum Expression {
         op: BinaryOperator,
         right: Box<Expression>,
     },
-    
+
     // ----------------------------------------------------
     // III. 控制流 / 函数 / 赋值
     // ----------------------------------------------------
@@ -47,22 +44,22 @@ pub enum Expression {
 
     // 赋值 (AssignmentExpression)
     Assignment {
-        lvalue: LValue, 
+        lvalue: LValue,
         value: Box<Expression>,
     },
-    
+
     // If Expression
     If {
         condition: Box<Expression>,
         then_block: Block,
         // else_branch 可以是另一个 IfExpression 或一个 BlockExpression
-        else_branch: Option<Box<Expression>>, 
+        else_branch: Option<Box<Expression>>,
     },
-    
+
     // For Expression (列表生成/map)
     For {
-        identifier: String,          // for x
-        iterable: Box<Expression>,   // in collection
+        identifier: String,        // for x
+        iterable: Box<Expression>, // in collection
         body: Block,
     },
 
@@ -71,14 +68,14 @@ pub enum Expression {
     // ----------------------------------------------------
     // 函数调用 (FunctionCall)
     Call {
-        callee: Box<Expression>,         // 被调用的函数表达式 (e.g., f, obj.method)
-        args: Vec<Expression>,           // 参数列表
+        callee: Box<Expression>, // 被调用的函数表达式 (e.g., f, obj.method)
+        args: Vec<Expression>,   // 参数列表
     },
-    
+
     // 列表/字典/属性访问 (Accessor 规则)
     Accessor {
-        target: Box<Expression>,       // 目标对象
-        access: AccessType,            // 访问类型 (Index or Dot)
+        target: Box<Expression>, // 目标对象
+        access: AccessType,      // 访问类型 (Index or Dot)
     },
 }
 
@@ -101,11 +98,13 @@ pub struct Block {
 #[derive(Debug, Clone)]
 pub enum LValue {
     Identifier(String), // 变量名
-    IndexAccess {       // 列表/字典索引赋值 e.g. arr[0] = 1
+    IndexAccess {
+        // 列表/字典索引赋值 e.g. arr[0] = 1
         target: Box<Expression>,
         key: Box<Expression>,
     },
-    DotAccess {         // 属性点访问赋值 e.g. obj.prop = 1
+    DotAccess {
+        // 属性点访问赋值 e.g. obj.prop = 1
         target: Box<Expression>,
         property_name: String, // '.' 后的标识符
     },
@@ -114,10 +113,9 @@ pub enum LValue {
 // 辅助结构：访问类型
 #[derive(Debug, Clone)]
 pub enum AccessType {
-    Index(Box<Expression>),      // 索引访问 [TermExpression]
-    Dot(String),                 // 点访问 .Identifier
+    Index(Box<Expression>), // 索引访问 [TermExpression]
+    Dot(String),            // 点访问 .Identifier
 }
-
 
 // --- 运算符枚举 (可与 Token 对应) ---
 #[derive(Debug, Clone, PartialEq, Copy)]
@@ -128,9 +126,24 @@ pub enum UnaryOperator {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum BinaryOperator {
     // 算术
-    Add, Sub, Mul, Div, Mod, 
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
     // 位运算
-    ShL, ShR, BitAnd, BitOr, BitXor,
+    ShL,
+    ShR,
+    BitAnd,
+    BitOr,
+    BitXor,
     // 关系/逻辑
-    Lt, Lte, Gt, Gte, Eq, Neq, And, Or,
+    Lt,
+    Lte,
+    Gt,
+    Gte,
+    Eq,
+    Neq,
+    And,
+    Or,
 }

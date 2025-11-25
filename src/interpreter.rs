@@ -2,12 +2,15 @@ use crate::ast::{Block, Expression, LiteralValue};
 use crate::environment::{Environment, EnvironmentRef};
 use crate::error::EasyScriptError;
 use crate::native;
-use crate::value::Value;
-use std::rc::Rc;
+use crate::value::{NativeFunction, Value}; // Import NativeFunction type alias
+use std::collections::HashMap;
+use std::rc::Rc; // Changed from Arc to Rc // Required for HashMap in method_registry
 
 pub struct Interpreter {
     // The environment is now a reference-counted pointer to a mutable Environment.
     environment: EnvironmentRef,
+    // Each interpreter instance now holds its own method registry
+    method_registry: HashMap<&'static str, HashMap<&'static str, NativeFunction>>,
 }
 
 impl Interpreter {
@@ -15,6 +18,8 @@ impl Interpreter {
         let interpreter = Interpreter {
             // Create the top-level (global) environment.
             environment: Environment::new(),
+            // Initialize the method registry
+            method_registry: native::init_builtin_methods_map(),
         };
 
         // Register native functions
@@ -22,68 +27,78 @@ impl Interpreter {
             let mut env = interpreter.environment.borrow_mut();
             env.assign(
                 "print",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::print_fn,
-                ))),
+                Value::Function(crate::value::FunctionObject::Native(
+                    (Rc::new(move |args| native::print_fn(args))) as NativeFunction,
+                )),
             );
+            // `len` is now a method. Global registration remains as a fallback.
             env.assign(
                 "len",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::len_fn,
-                ))),
+                Value::Function(crate::value::FunctionObject::Native(
+                    (Rc::new(move |args| native::len_fn(args))) as NativeFunction,
+                )),
             );
             env.assign(
                 "type",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::type_fn,
-                ))),
+                Value::Function(crate::value::FunctionObject::Native(
+                    (Rc::new(move |args| native::type_fn(args))) as NativeFunction,
+                )),
             );
             env.assign(
                 "str",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::str_fn,
-                ))),
+                Value::Function(crate::value::FunctionObject::Native(
+                    (Rc::new(move |args| native::str_fn(args))) as NativeFunction,
+                )),
             );
             env.assign(
                 "num",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::num_fn,
-                ))),
+                Value::Function(crate::value::FunctionObject::Native(
+                    (Rc::new(move |args| native::num_fn(args))) as NativeFunction,
+                )),
             );
             env.assign(
                 "input",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::input_fn,
-                ))),
+                Value::Function(crate::value::FunctionObject::Native(
+                    (Rc::new(move |args| native::input_fn(args))) as NativeFunction,
+                )),
             );
             env.assign(
                 "bool",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::bool_fn,
-                ))),
+                Value::Function(crate::value::FunctionObject::Native(
+                    (Rc::new(move |args| native::bool_fn(args))) as NativeFunction,
+                )),
             );
-            env.assign(
-                "keys",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::keys_fn,
-                ))),
-            );
-            env.assign(
-                "values",
-                Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::values_fn,
-                ))),
-            );
+            // `keys`, `values` are now methods, no longer globally registered as functions.
+            // env.assign(
+            //     "keys",
+            //     Value::Function(crate::value::FunctionObject::Native(Rc::new(
+            //         native::keys_fn as fn(Vec<Value>) -> Result<Value, String>,
+            //     ))),
+            // );
+            // env.assign(
+            //     "values",
+            //     Value::Function(crate::value::FunctionObject::Native(Rc::new(
+            //         native::values_fn as fn(Vec<Value>) -> Result<Value, String>,
+            //     ))),
+            // );
         } // env 借用在此处结束
 
         interpreter
     }
 
-    /// The main entry point to run a program.
-    pub fn run(&mut self, block: &Block) -> Result<Value, EasyScriptError> {
-        // Clone the Rc to avoid a mutable borrow conflict with self.environment
-        let env_clone = Rc::clone(&self.environment);
-        self.execute_block(block, &env_clone)
+    /// Runs the interpreter with a given program block.
+    pub fn run(&mut self, program: &Block) -> Result<Value, EasyScriptError> {
+        // 克隆 environment，使其与 self 的可变借用不冲突
+        let current_env = Rc::clone(&self.environment);
+        self.execute_block(program, &current_env)
+    }
+
+    /// Helper function to find a built-in method
+    fn find_builtin_method(&self, type_name: &str, method_name: &str) -> Option<NativeFunction> {
+        self.method_registry
+            .get(type_name)?
+            .get(method_name)
+            .cloned()
     }
 
     /// Executes a block of expressions in a given environment.
@@ -381,29 +396,32 @@ impl Interpreter {
                     }
 
                     crate::ast::AccessType::Dot(property_name) => {
+                        // Method-first, property-fallback
+                        // 1. Check for built-in method
+                        if let Some(method_fn) =
+                            self.find_builtin_method(target_val.type_of(), &property_name)
+                        {
+                            return Ok(Value::BoundMethod {
+                                receiver: Box::new(target_val),
+                                method: method_fn,
+                            });
+                        }
+
+                        // 2. Fallback to map property lookup
                         match target_val {
                             Value::Map(map) => {
-                                // Dot access uses a string literal as a key
-
                                 let key_val = Value::String(property_name.clone());
-
                                 if let Some(val) = map.get(&key_val) {
                                     Ok(val.clone())
                                 } else {
-                                    Err(EasyScriptError::RuntimeError {
-                                        message: format!(
-                                            "Property '{}' not found in map.",
-                                            property_name
-                                        ),
-                                        location: None,
-                                    })
+                                    Ok(Value::Nil) // Return nil if property not found in map
                                 }
                             }
-
                             _ => Err(EasyScriptError::RuntimeError {
                                 message: format!(
-                                    "Cannot use dot access on non-map type: {}",
-                                    target_val
+                                    "Cannot use dot access on non-map type: {} or no method '{}' found.",
+                                    target_val.type_of(),
+                                    property_name
                                 ),
                                 location: None,
                             }),
@@ -539,6 +557,14 @@ impl Interpreter {
                             self.execute_block(&body, &function_env)
                         }
                     },
+                    Value::BoundMethod { receiver, method } => {
+                        let mut final_args = vec![*receiver];
+                        final_args.extend(arg_vals);
+                        method(final_args).map_err(|e| EasyScriptError::RuntimeError {
+                            message: e,
+                            location: None,
+                        })
+                    }
                     _ => Err(EasyScriptError::RuntimeError {
                         message: format!("Cannot call non-function value: {}", callee_val),
                         location: None,

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc; // 使用 Rc 来进行引用计数，便于共享
+use std::rc::Rc; // Changed from Arc to Rc for single-threaded usage
+
 use crate::environment::EnvironmentRef;
 
 // 定义函数签名，用于表示原生的 Rust 函数
@@ -15,35 +16,67 @@ pub enum FunctionObject {
     // EasyScript 用户函数 (现在包含闭包环境信息)
     User {
         params: Vec<String>,
-        body: Rc<super::ast::Block>, // 使用 Rc 共享 Block
-        defined_env: EnvironmentRef, // 捕获函数定义时的环境
+        body: Rc<super::ast::Block>,
+        defined_env: EnvironmentRef,
     },
 }
 
 impl fmt::Debug for FunctionObject {
-    // 简化 Debug 输出
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FunctionObject::Native(_) => write!(f, "<native fn>"),
-            FunctionObject::User { params, .. } => write!(f, "<fn ({})>", params.join(", ")),
+            FunctionObject::Native(_) => write!(f, "<native function>"),
+            FunctionObject::User {
+                params,
+                body,
+                defined_env,
+            } => f
+                .debug_struct("UserFunction")
+                .field("params", params)
+                .field("body", body)
+                .field("defined_env", defined_env)
+                .finish(),
         }
     }
 }
 
 // EasyScript 核心运行时值类型，一切皆 Value。
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub enum Value {
     Nil,
     Boolean(bool),
     Number(f64),
     String(String),
-    // List 是可变集合，使用 Rc<Vec<Value>> 实现
-    List(Rc<Vec<Value>>), 
-    // Map/Dict/Object，使用 Rc<HashMap<Value, Value>> 实现
+    List(Rc<Vec<Value>>),
     Map(Rc<HashMap<Value, Value>>),
     Function(FunctionObject),
+    BoundMethod {
+        receiver: Box<Value>,
+        method: NativeFunction,
+    },
 }
 
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Nil => write!(f, "Nil"),
+            Value::Boolean(b) => f.debug_tuple("Boolean").field(b).finish(),
+            Value::Number(n) => f.debug_tuple("Number").field(n).finish(),
+            Value::String(s) => f.debug_tuple("String").field(s).finish(),
+            Value::List(l) => f.debug_tuple("List").field(l).finish(),
+            Value::Map(m) => f.debug_tuple("Map").field(m).finish(),
+            Value::Function(func_obj) => f.debug_tuple("Function").field(func_obj).finish(),
+            Value::BoundMethod {
+                receiver,
+                method: _,
+            } => {
+                f.debug_struct("BoundMethod")
+                    .field("receiver", receiver)
+                    .field("method", &"<native method>") // Do not debug the function itself
+                    .finish()
+            }
+        }
+    }
+}
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -56,7 +89,7 @@ impl fmt::Display for Value {
                 } else {
                     write!(f, "{}", n)
                 }
-            },
+            }
             Value::String(s) => write!(f, "{}", s), // Note: No quotes
             Value::List(list) => {
                 write!(f, "[")?;
@@ -85,6 +118,7 @@ impl fmt::Display for Value {
                 write!(f, "}}")
             }
             Value::Function(_) => write!(f, "<function>"),
+            Value::BoundMethod { .. } => write!(f, "<bound method>"),
         }
     }
 }
@@ -99,6 +133,7 @@ impl Value {
             Value::List(_) => "list",
             Value::Map(_) => "map",
             Value::Function(_) => "function",
+            Value::BoundMethod { .. } => "method",
         }
     }
 
@@ -114,10 +149,10 @@ impl Value {
             Value::List(l) => !l.is_empty(),
             Value::Map(m) => !m.is_empty(),
             Value::Function(_) => true,
+            Value::BoundMethod { .. } => true, // Bound methods are always truthy
         }
     }
 }
-
 
 // 为了能作为 Map 的键，Value 必须实现 Eq 和 Hash (这里暂时只实现部分类型)
 // 生产级实现中，List 和 Map 的 Hash/Eq 实现会更复杂，这里先仅为编译通过。
@@ -143,7 +178,7 @@ impl Hash for Value {
             Value::Nil => 0.hash(state),
             Value::Boolean(b) => b.hash(state),
             // 注意：浮点数 Hash 需要处理 NaN/Inf，这里使用简单的比特表示
-            Value::Number(n) => n.to_bits().hash(state), 
+            Value::Number(n) => n.to_bits().hash(state),
             Value::String(s) => s.hash(state),
             // List/Map 默认不可作为 Hash Key，若强行要用，需要特殊的标识符或引用 Hash
             _ => { /* List/Map are not hashable by default, so we do nothing here */ }

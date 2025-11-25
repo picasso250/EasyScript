@@ -1,6 +1,6 @@
 // Test with a map that has number values
 let my_map1 = {"a": 10, "b": 20, "c": 30};
-let values1 = values(my_map1);
+let values1 = my_map1.values();
 print(len(values1)); // Should be 3
 
 let sum = 0;
@@ -11,12 +11,12 @@ print(sum); // Should be 60 (10+20+30)
 
 // Test with a map that has string values
 let my_map2 = {1: "hello", 2: "world"};
-let values2 = values(my_map2);
+let values2 = my_map2.values();
 print(len(values2)); // Should be 2
 
 // Test with an empty map
 let my_map3 = {};
-let values3 = values(my_map3);
+let values3 = my_map3.values();
 print(len(values3)); // Should be 0
 print(values3);     // Should be []
 
