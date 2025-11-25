@@ -1,6 +1,7 @@
 use crate::ast::{Block, Expression, LiteralValue};
 use crate::environment::{Environment, EnvironmentRef};
 use crate::error::EasyScriptError;
+use crate::native;
 use crate::value::Value;
 use std::rc::Rc;
 
@@ -11,10 +12,23 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        Interpreter {
+        let mut interpreter = Interpreter {
             // Create the top-level (global) environment.
             environment: Environment::new(),
-        }
+        };
+
+        // Register native functions
+        {
+            let mut env = interpreter.environment.borrow_mut();
+            env.assign(
+                "print",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::print_fn,
+                ))),
+            );
+        } // env 借用在此处结束
+
+        interpreter
     }
 
     /// The main entry point to run a program.

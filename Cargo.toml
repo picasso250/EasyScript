@@ -6,6 +6,7 @@ edition = "2021"
 # 默认情况下，EasyScript 不需要额外的依赖，如果后面需要用到
 # 像 pest, lalrpop 或更复杂的并发库时，我们会在这里添加。
 [dependencies]
+gag = "1.0.0"
 lazy_static = "1.4.0" # 新增：用于关键字 HashMap
 
 [dev-dependencies]

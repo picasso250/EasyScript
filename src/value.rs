@@ -5,7 +5,7 @@ use crate::environment::EnvironmentRef;
 
 // 定义函数签名，用于表示原生的 Rust 函数
 // (Vec<Value>) -> Result<Value, String> 表示接受一列参数，返回一个 Result
-pub type NativeFunction = fn(Vec<Value>) -> Result<Value, String>;
+pub type NativeFunction = Rc<dyn Fn(Vec<Value>) -> Result<Value, String>>;
 
 // 运行时函数对象，可以是用户定义的（Closure）或原生（Native）
 #[derive(Clone)]

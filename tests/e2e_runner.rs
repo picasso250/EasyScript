@@ -4,35 +4,50 @@
 use easyscript_rs::interpreter::Interpreter;
 use easyscript_rs::lexer::Lexer;
 use easyscript_rs::parser::Parser;
-
+use gag::BufferRedirect;
 use glob::glob;
 use std::fs;
+use std::io::Read;
 use std::path::PathBuf;
 
 // Represents the expected outcome of a test case.
-// We'll only support Value expectations for now.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Expectation {
-    value: String,
+    value: Option<String>,
+    stdout: Option<String>,
 }
 
 // A helper function to parse the test file.
-// It separates the code from the expectation comment.
-fn parse_test_file(source: &str) -> (String, Option<Expectation>) {
-    let mut code = String::new();
-    let mut expectation = None;
+// It separates the code from expectation comments.
+// Expectation comments are expected to be at the end of the file.
+fn parse_test_file(source: &str) -> (String, Expectation) {
+    let mut code_lines = Vec::new();
+    let mut value_expectation: Option<String> = None;
+    let mut stdout_expectations: Vec<String> = Vec::new();
 
     for line in source.lines() {
-        if let Some(stripped) = line.strip_prefix("// expect:") {
-            expectation = Some(Expectation {
-                value: stripped.trim().to_string(),
-            });
-            // Stop at the expectation line, don't add it to the code
-            break; 
+        if let Some(val) = line.strip_prefix("// expect:") {
+            value_expectation = Some(val.trim().to_string());
+        } else if let Some(stdout_val) = line.strip_prefix("// expect_stdout:") {
+            stdout_expectations.push(stdout_val.trim().to_string());
+        } else {
+            code_lines.push(line);
         }
-        code.push_str(line);
-        code.push('\n');
     }
+
+    let code = code_lines.join("\n");
+
+    let final_stdout_exp = if !stdout_expectations.is_empty() {
+        // Add a trailing newline to match the behavior of println!
+        Some(stdout_expectations.join("\n") + "\n")
+    } else {
+        None
+    };
+
+    let expectation = Expectation {
+        value: value_expectation,
+        stdout: final_stdout_exp,
+    };
 
     (code, expectation)
 }
@@ -59,8 +74,10 @@ fn run_test_file(path: PathBuf) {
     let source = fs::read_to_string(&path).expect("Failed to read test file");
     let (code, expectation) = parse_test_file(&source);
 
-    // An E2E test file must have an expectation.
-    let expectation = expectation.expect("Test file must have an '// expect: ...' comment.");
+    // An E2E test file must have at least one expectation.
+    if expectation.value.is_none() && expectation.stdout.is_none() {
+        panic!("Test file {:?} must have at least one '// expect: ...' or '// expect_stdout: ...' comment.", path);
+    }
 
     // 1. Lexer
     let tokens = match Lexer::new(&code).scan_tokens() {
@@ -79,18 +96,39 @@ fn run_test_file(path: PathBuf) {
     };
 
     // 3. Interpreter
+    // Capture stdout during interpretation
+    let mut buf = BufferRedirect::stdout().unwrap();
     let mut interpreter = Interpreter::new();
-    match interpreter.run(&ast) {
+    let result = interpreter.run(&ast);
+
+    // Read captured stdout
+    let mut captured_stdout = String::new();
+    buf.read_to_string(&mut captured_stdout).unwrap();
+    // Drop the buffer to restore stdout
+    drop(buf); 
+
+    // On Windows, captured stdout has \r\n, so normalize to \n
+    let captured_stdout = captured_stdout.replace("\r\n", "\n");
+
+    // Process result
+    match result {
         Ok(value) => {
-            // Compare the Display format of the value with the expectation.
             let actual_value_str = format!("{}", value);
             println!("   Success: resulted in value: {}", actual_value_str);
-            assert_eq!(actual_value_str, expectation.value);
+
+            if let Some(expected_value) = expectation.value {
+                assert_eq!(actual_value_str, expected_value, "Value expectation mismatch!");
+            }
+
+            if let Some(expected_stdout) = expectation.stdout {
+                assert_eq!(captured_stdout, expected_stdout, "Stdout expectation mismatch!");
+            }
         }
         Err(e) => {
-            // For now, runtime errors cause a panic.
-            // Later we can add '// expect runtime error:'
-            panic!("\nExpected value '{}' but got runtime error in {:?}:\n{}", expectation.value, path, e);
+            panic!(
+                "\nExpected value '{:?}' and stdout '{:?}' but got runtime error in {:?}:\n{}",
+                expectation.value, expectation.stdout, path, e
+            );
         }
     }
 }
