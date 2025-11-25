@@ -101,6 +101,21 @@ impl Value {
             Value::Function(_) => "function",
         }
     }
+
+    /// Determines the truthiness of a value based on EasyScript's rules.
+    /// Falsy values are: nil, false, 0, "", [], and {}.
+    /// All other values are truthy.
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Nil => false,
+            Value::Boolean(b) => *b,
+            Value::Number(n) => *n != 0.0,
+            Value::String(s) => !s.is_empty(),
+            Value::List(l) => !l.is_empty(),
+            Value::Map(m) => !m.is_empty(),
+            Value::Function(_) => true,
+        }
+    }
 }
 
 

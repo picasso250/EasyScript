@@ -56,6 +56,18 @@ impl Interpreter {
                     native::input_fn,
                 ))),
             );
+            env.assign(
+                "bool",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::bool_fn,
+                ))),
+            );
+            env.assign(
+                "keys",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::keys_fn,
+                ))),
+            );
         } // env 借用在此处结束
 
         interpreter
@@ -401,15 +413,10 @@ impl Interpreter {
             } => {
                 let condition_val = self.evaluate(condition)?;
 
-                let is_truthy = match condition_val {
-                    Value::Boolean(b) => b,
-                    Value::Nil => false,
-                    _ => true, // All other values are truthy
-                };
-
-                if is_truthy {
-                    let env_clone = Rc::clone(&self.environment); // Fix: Clone Rc to avoid borrow conflict
-                    self.execute_block(then_block, &env_clone)
+                if condition_val.is_truthy() {
+                    // Create a new scope for the block and execute it.
+                    let new_env = Environment::new_enclosed(&self.environment);
+                    self.execute_block(then_block, &new_env)
                 } else if let Some(else_expr) = else_branch {
                     // The else_branch can be another IfExpression or a BlockExpression
                     self.evaluate(else_expr) // Evaluate the else expression (which could be a block or another if)

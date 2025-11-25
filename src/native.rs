@@ -1,4 +1,5 @@
 use crate::value::Value;
+use std::rc::Rc;
 
 // Native print function
 pub fn print_fn(args: Vec<Value>) -> Result<Value, String> {
@@ -22,10 +23,7 @@ pub fn len_fn(args: Vec<Value>) -> Result<Value, String> {
         Value::List(l) => l.len(),
         Value::Map(m) => m.len(),
         other => {
-            return Err(format!(
-                "len() does not support type '{}'",
-                other.type_of()
-            ));
+            return Err(format!("len() does not support type '{}'", other.type_of()));
         }
     };
 
@@ -35,7 +33,10 @@ pub fn len_fn(args: Vec<Value>) -> Result<Value, String> {
 // Native type function
 pub fn type_fn(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
-        return Err(format!("type() expected 1 argument, but got {}", args.len()));
+        return Err(format!(
+            "type() expected 1 argument, but got {}",
+            args.len()
+        ));
     }
 
     let type_str = args[0].type_of();
@@ -45,7 +46,10 @@ pub fn type_fn(args: Vec<Value>) -> Result<Value, String> {
 // Native string conversion function
 pub fn string_fn(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
-        return Err(format!("string() expected 1 argument, but got {}", args.len()));
+        return Err(format!(
+            "string() expected 1 argument, but got {}",
+            args.len()
+        ));
     }
 
     Ok(Value::String(format!("{}", args[0])))
@@ -55,7 +59,10 @@ pub fn string_fn(args: Vec<Value>) -> Result<Value, String> {
 pub fn number_fn(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         // 参数数量错误仍然抛出运行时错误，因为这是函数用法错误
-        return Err(format!("number() expected 1 argument, but got {}", args.len()));
+        return Err(format!(
+            "number() expected 1 argument, but got {}",
+            args.len()
+        ));
     }
 
     match &args[0] {
@@ -102,5 +109,41 @@ pub fn input_fn(args: Vec<Value>) -> Result<Value, String> {
         .map_err(|e| e.to_string())?;
 
     // Remove trailing newline (platform dependent: \n or \r\n)
-    Ok(Value::String(line.trim_end_matches(&['\n', '\r'][..]).to_string()))
+    Ok(Value::String(
+        line.trim_end_matches(&['\n', '\r'][..]).to_string(),
+    ))
+}
+
+// Native bool conversion function
+
+pub fn bool_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "bool() expected 1 argument, but got {}",
+            args.len()
+        ));
+    }
+
+    Ok(Value::Boolean(args[0].is_truthy()))
+}
+
+// Native keys function
+pub fn keys_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "keys() expected 1 argument, but got {}",
+            args.len()
+        ));
+    }
+
+    match &args[0] {
+        Value::Map(m) => {
+            let keys: Vec<Value> = m.keys().cloned().collect();
+            Ok(Value::List(Rc::new(keys)))
+        }
+        other => Err(format!(
+            "keys() expected a map, but got type '{}'.",
+            other.type_of()
+        )),
+    }
 }
