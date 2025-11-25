@@ -8,7 +8,7 @@ let map_keys_transform = for k in {"a": 1, "b": 2} { k + k };
 
 // Test for expression with mixed types
 let mixed_transform = for x in [1, "hello", true] { str(x) + "!" };
-print(mixed_transform); // Expected: [1!, hello!, true!]
+print(mixed_transform); // Expected: ["1!", "hello!", "true!"]
 
 // Test for expression with side effects (body returns nil)
 let counter = 0;
@@ -22,7 +22,7 @@ print(empty_transform); // Expected: []
 
 // expect: nil
 // expect_stdout: [2, 4, 6]
-// expect_stdout: [1!, hello!, true!]
+// expect_stdout: ["1!", "hello!", "true!"]
 // expect_stdout: [nil, nil, nil]
 // expect_stdout: 3
 // expect_stdout: []

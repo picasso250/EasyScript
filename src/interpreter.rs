@@ -1,87 +1,87 @@
 use crate::ast::{Block, Expression, LiteralValue};
 use crate::environment::{Environment, EnvironmentRef};
 use crate::error::EasyScriptError;
-use crate::native;
-use crate::value::{NativeFunction, Value}; // Import NativeFunction type alias
+use crate::value::{BoundMethodInner, FunctionObjectInner, Heap, NativeFunction, Object, Value};
 use std::collections::HashMap;
-use std::rc::Rc; // Changed from Arc to Rc // Required for HashMap in method_registry
+use std::rc::Rc;
 
 pub struct Interpreter {
-    // The environment is now a reference-counted pointer to a mutable Environment.
+    pub heap: Heap,
     environment: EnvironmentRef,
-    // Each interpreter instance now holds its own method registry
-    method_registry: HashMap<&'static str, HashMap<&'static str, NativeFunction>>,
+    // Add the builtin_methods field
+    builtin_methods: HashMap<&'static str, HashMap<&'static str, NativeFunction>>,
 }
 
 impl Interpreter {
     pub fn new() -> Self {
-        let interpreter = Interpreter {
-            // Create the top-level (global) environment.
+        let mut interpreter = Interpreter {
+            heap: Heap::new(),
             environment: Environment::new(),
-            // Initialize the method registry
-            method_registry: native::init_builtin_methods_map(),
+            builtin_methods: HashMap::new(), // Temporarily initialize as empty
         };
 
-        // Register native functions
+        // Initialize builtin_methods after heap is available
+        interpreter.builtin_methods =
+            crate::native::init_builtin_methods_map(&mut interpreter.heap);
+
+        // Register global native functions
+        let global_env_ref = Rc::clone(&interpreter.environment);
         {
-            let mut env = interpreter.environment.borrow_mut();
-            env.assign(
+            let mut global_env = global_env_ref.borrow_mut();
+            global_env.assign(
                 "print",
-                Value::Function(crate::value::FunctionObject::Native(
-                    (Rc::new(move |args| native::print_fn(args))) as NativeFunction,
-                )),
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::print_fn)),
+                ),
             );
-            // `len` is now a method. Global registration remains as a fallback.
-            env.assign(
+            global_env.assign(
                 "len",
-                Value::Function(crate::value::FunctionObject::Native(
-                    (Rc::new(move |args| native::len_fn(args))) as NativeFunction,
-                )),
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::len_fn)),
+                ),
             );
-            env.assign(
+            global_env.assign(
                 "type",
-                Value::Function(crate::value::FunctionObject::Native(
-                    (Rc::new(move |args| native::type_fn(args))) as NativeFunction,
-                )),
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::type_fn)),
+                ),
             );
-            env.assign(
-                "str",
-                Value::Function(crate::value::FunctionObject::Native(
-                    (Rc::new(move |args| native::str_fn(args))) as NativeFunction,
-                )),
-            );
-            env.assign(
-                "num",
-                Value::Function(crate::value::FunctionObject::Native(
-                    (Rc::new(move |args| native::num_fn(args))) as NativeFunction,
-                )),
-            );
-            env.assign(
-                "input",
-                Value::Function(crate::value::FunctionObject::Native(
-                    (Rc::new(move |args| native::input_fn(args))) as NativeFunction,
-                )),
-            );
-            env.assign(
+            global_env.assign(
                 "bool",
-                Value::Function(crate::value::FunctionObject::Native(
-                    (Rc::new(move |args| native::bool_fn(args))) as NativeFunction,
-                )),
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::bool_fn)),
+                ),
             );
-            // `keys`, `values` are now methods, no longer globally registered as functions.
-            // env.assign(
-            //     "keys",
-            //     Value::Function(crate::value::FunctionObject::Native(Rc::new(
-            //         native::keys_fn as fn(Vec<Value>) -> Result<Value, String>,
-            //     ))),
-            // );
-            // env.assign(
-            //     "values",
-            //     Value::Function(crate::value::FunctionObject::Native(Rc::new(
-            //         native::values_fn as fn(Vec<Value>) -> Result<Value, String>,
-            //     ))),
-            // );
-        } // env 借用在此处结束
+            global_env.assign(
+                "str",
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::str_fn)),
+                ),
+            );
+            global_env.assign(
+                "num",
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::num_fn)),
+                ),
+            );
+            global_env.assign(
+                "input",
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::input_fn)),
+                ),
+            );
+            global_env.assign(
+                "repr", // Register the new repr function
+                Value::function(&mut interpreter.heap, FunctionObjectInner::Native(Rc::new(crate::native::repr_fn))),
+            );
+        } // The mutable borrow of global_env is dropped here.
 
         interpreter
     }
@@ -97,14 +97,6 @@ impl Interpreter {
         self.execute_block(program, &current_env)
     }
 
-    /// Helper function to find a built-in method
-    fn find_builtin_method(&self, type_name: &str, method_name: &str) -> Option<NativeFunction> {
-        self.method_registry
-            .get(type_name)?
-            .get(method_name)
-            .cloned()
-    }
-
     /// Executes a block of expressions in a given environment.
     /// For nested blocks, a new enclosed environment is created.
     fn execute_block(
@@ -116,11 +108,13 @@ impl Interpreter {
         let previous_env = Rc::clone(&self.environment);
         self.environment = Rc::clone(env);
 
-        let mut last_value = Value::Nil;
-        for (expr, terminated_by_semicolon) in &block.expressions {
+        let mut last_value = Value::nil(&mut self.heap);
+        for (index, (expr, terminated_by_semicolon)) in block.expressions.iter().enumerate() {
             last_value = self.evaluate(expr)?;
-            if *terminated_by_semicolon {
-                last_value = Value::Nil; // If terminated by semicolon, return nil
+            // Only set to nil if terminated by semicolon AND it's not the last expression.
+            // The last expression's value should always be returned regardless of semicolon.
+            if *terminated_by_semicolon && index < block.expressions.len() - 1 {
+                last_value = Value::nil(&mut self.heap);
             }
         }
 
@@ -139,18 +133,18 @@ impl Interpreter {
                 for expr in expr_list {
                     values.push(self.evaluate(expr)?);
                 }
-                Ok(Value::List(Rc::new(values)))
+                Ok(Value::list(&mut self.heap, values))
             }
 
             Expression::MapLiteral(expr_pairs) => {
-                let mut map = std::collections::HashMap::<Value, Value>::new(); // 修改这里
+                let mut map = std::collections::HashMap::<Value, Value>::new();
                 for (key_expr, value_expr) in expr_pairs {
                     let key = self.evaluate(key_expr)?;
                     let value = self.evaluate(value_expr)?;
-                    
+
                     // Map keys must be primitive types (String, Number, Boolean)
-                    match key {
-                        Value::String(_) | Value::Number(_) | Value::Boolean(_) => {
+                    match key.type_of() { // Check the type_of the value
+                        "string" | "number" | "boolean" => {
                             // These types are hashable and allowed as keys
                             map.insert(key, value);
                         },
@@ -165,7 +159,7 @@ impl Interpreter {
                         }
                     };
                 }
-                Ok(Value::Map(Rc::new(map)))
+                Ok(Value::map(&mut self.heap, map))
             }
 
             Expression::Block(block) => {
@@ -185,11 +179,14 @@ impl Interpreter {
             }
 
             Expression::FunctionDef { params, body } => {
-                Ok(Value::Function(crate::value::FunctionObject::User {
-                    params: params.clone(),
-                    body: std::rc::Rc::new(body.clone()),
-                    defined_env: Rc::clone(&self.environment), // 捕获当前环境
-                }))
+                Ok(Value::function(
+                    &mut self.heap,
+                    crate::value::FunctionObjectInner::User {
+                        params: params.clone(),
+                        body: std::rc::Rc::new(body.clone()),
+                        defined_env: Rc::clone(&self.environment), // 捕获当前环境
+                    },
+                ))
             }
 
             // 新增: Let 表达式的处理
@@ -222,7 +219,7 @@ impl Interpreter {
                             });
                         }
 
-                        Ok(value_to_assign) // 赋值表达式现在返回被赋的值
+                        Ok(Value::nil(&mut self.heap)) // 赋值表达式现在返回 nil
                     }
 
                     crate::ast::LValue::IndexAccess { target, key } => {
@@ -239,13 +236,12 @@ impl Interpreter {
                                         target_env.values.remove(target_name.as_str())
                                     {
                                         let mut modification_err = None;
-                                        match &mut existing_val {
-                                            Value::List(list_rc) => {
-                                                let mut_list = Rc::make_mut(list_rc);
-                                                if let Value::Number(idx_float) = key_val {
-                                                    let index = idx_float as usize;
-                                                    if index < mut_list.len() {
-                                                        mut_list[index] = value_to_assign.clone();
+                                        match existing_val.0.deref_mut() { // Access the inner Object mutably
+                                            Object::List(list) => {
+                                                if let Some(idx_float) = key_val.0.deref().as_number() {
+                                                    let index = *idx_float as usize;
+                                                    if index < list.len() {
+                                                        list[index] = value_to_assign.clone();
                                                     } else {
                                                         modification_err = Some(EasyScriptError::RuntimeError {
                                                             message: format!("List index out of bounds for assignment: {}", idx_float),
@@ -254,17 +250,16 @@ impl Interpreter {
                                                     }
                                                 } else {
                                                     modification_err = Some(EasyScriptError::RuntimeError {
-                                                        message: format!("List index must be a number for assignment. Got: {}", key_val),
-                                                        location: None,
-                                                    });
+                                                        message: format!("List index must be a number for assignment. Got: {}", key_val.type_of()),
+                                                            location: None,
+                                                        });
+                                                    }
                                                 }
-                                            }
-                                            Value::Map(map_rc) => {
-                                                let mut_map = Rc::make_mut(map_rc);
+                                            Object::Map(map) => {
                                                 // 检查 key_val 是否是允许的键类型
-                                                match key_val {
-                                                    Value::String(_) | Value::Number(_) | Value::Boolean(_) => {
-                                                        mut_map.insert(key_val, value_to_assign.clone()); // 直接使用 key_val
+                                                match key_val.type_of() {
+                                                    "string" | "number" | "boolean" => {
+                                                        map.insert(key_val, value_to_assign.clone()); // 直接使用 key_val
                                                     },
                                                     _ => {
                                                         modification_err = Some(EasyScriptError::RuntimeError {
@@ -289,7 +284,7 @@ impl Interpreter {
                                         if let Some(err) = modification_err {
                                             return Err(err);
                                         }
-                                        Ok(value_to_assign)
+                                        Ok(Value::nil(&mut self.heap))
                                     } else {
                                         Err(EasyScriptError::RuntimeError {
                                         message: format!("Internal error: Variable '{}' found but could not be removed for mutation.", target_name),
@@ -324,11 +319,10 @@ impl Interpreter {
                                         target_env.values.remove(target_name.as_str())
                                     {
                                         let mut modification_err = None;
-                                        match &mut existing_val {
-                                            Value::Map(map_rc) => {
-                                                let mut_map = Rc::make_mut(map_rc);
-                                                mut_map.insert(
-                                                    Value::String(property_name.clone()), // 修改这里
+                                        match existing_val.0.deref_mut() { // Access the inner Object mutably
+                                            Object::Map(map) => {
+                                                map.insert(
+                                                    Value::string(&mut self.heap, property_name.clone()),
                                                     value_to_assign.clone(),
                                                 );
                                             }
@@ -377,10 +371,10 @@ impl Interpreter {
                     crate::ast::AccessType::Index(key_expr) => {
                         let key_val = self.evaluate(key_expr)?;
 
-                        match target_val {
-                            Value::List(list) => {
-                                if let Value::Number(idx_float) = key_val {
-                                    let index = idx_float as usize; // Cast to usize for list indexing
+                        match target_val.0.deref() {
+                            Object::List(list) => {
+                                if let Some(idx_float) = key_val.0.deref().as_number() {
+                                    let index = *idx_float as usize; // Cast to usize for list indexing
 
                                     if let Some(val) = list.get(index) {
                                         Ok(val.clone())
@@ -397,21 +391,21 @@ impl Interpreter {
                                     Err(EasyScriptError::RuntimeError {
                                         message: format!(
                                             "List index must be a number. Got: {}",
-                                            key_val
+                                            key_val.type_of()
                                         ),
                                         location: None,
                                     })
                                 }
                             }
 
-                            Value::Map(map) => {
+                            Object::Map(map) => {
                                 // 检查 key_val 是否是允许的键类型
-                                match key_val {
-                                    Value::String(_) | Value::Number(_) | Value::Boolean(_) => {
+                                match key_val.type_of() {
+                                    "string" | "number" | "boolean" => {
                                         if let Some(val) = map.get(&key_val) { // 修改这里
                                             Ok(val.clone())
                                         } else {
-                                            Ok(Value::Nil) // Return nil if property not found in map
+                                            Ok(Value::nil(&mut self.heap)) // Return nil if property not found in map
                                         }
                                     },
                                     _ => {
@@ -427,42 +421,51 @@ impl Interpreter {
                             }
 
                             _ => Err(EasyScriptError::RuntimeError {
-                                message: format!("Cannot index non-list/map type: {}", target_val),
+                                message: format!(
+                                    "Cannot index non-list/map type: {}",
+                                    target_val.type_of()
+                                ),
                                 location: None,
                             }),
                         }
                     }
 
                     crate::ast::AccessType::Dot(property_name) => {
-                        // Method-first, property-fallback
-                        // 1. Check for built-in method
-                        if let Some(method_fn) =
-                            self.find_builtin_method(target_val.type_of(), &property_name)
+                        // 1. Check for built-in methods first
+                        if let Some(methods_for_type) =
+                            self.builtin_methods.get(target_val.type_of())
                         {
-                            return Ok(Value::BoundMethod {
-                                receiver: Box::new(target_val),
-                                method: method_fn,
-                            });
+                            if methods_for_type.contains_key(property_name.as_str()) {
+                                // Found a built-in method, return a BoundMethod
+                                return Ok(Value::bound_method(
+                                    &mut self.heap,
+                                    BoundMethodInner {
+                                        receiver: target_val.clone(),
+                                        method_name: property_name.clone(),
+                                    },
+                                ));
+                            }
                         }
 
-                        // 2. Fallback to map property lookup
-                        match target_val {
-                            Value::Map(map) => {
-                                let key_val = Value::String(property_name.clone()); // 将 String 包装成 Value::String
-                                if let Some(val) = map.get(&key_val) { // 修改这里
-                                    Ok(val.clone())
-                                } else {
-                                    Ok(Value::Nil) // Return nil if property not found in map
-                                }
+                        // 2. Fallback to map property lookup if not a built-in method
+                        if target_val.type_of() == "map" {
+                            let key_val = Value::string(&mut self.heap, property_name.clone());
+                            if let Some(val) = target_val.0.deref().as_map().unwrap().get(&key_val)
+                            {
+                                Ok(val.clone())
+                            } else {
+                                Ok(Value::nil(&mut self.heap)) // Return nil if property not found in map
                             }
-                            _ => Err(EasyScriptError::RuntimeError {
+                        } else {
+                            // If not a map and no built-in method found
+                            Err(EasyScriptError::RuntimeError {
                                 message: format!(
-                                    "Cannot use dot access on non-map type: {} or no method '{}' found.",
+                                    "Cannot use dot access on type '{}'. No method '{}' or map key found.",
                                     target_val.type_of(),
                                     property_name
                                 ),
                                 location: None,
-                            }),
+                            })
                         }
                     }
                 }
@@ -483,7 +486,7 @@ impl Interpreter {
                     // The else_branch can be another IfExpression or a BlockExpression
                     self.evaluate(else_expr) // Evaluate the else expression (which could be a block or another if)
                 } else {
-                    Ok(Value::Nil) // No else branch, condition false, so return nil
+                    Ok(Value::nil(&mut self.heap)) // No else branch, condition false, so return nil
                 }
             }
 
@@ -495,8 +498,8 @@ impl Interpreter {
                 let iterable_val = self.evaluate(iterable)?;
                 let mut collected_values = Vec::new(); // Collect results here
 
-                match iterable_val {
-                    Value::List(list) => {
+                match iterable_val.0.deref() {
+                    Object::List(list) => {
                         for element in list.iter() {
                             let loop_env = Environment::new_enclosed(&self.environment);
                             {
@@ -507,7 +510,7 @@ impl Interpreter {
                             collected_values.push(iteration_result);
                         }
                     }
-                    Value::Map(map) => {
+                    Object::Map(map) => {
                         for (key, _value) in map.iter() {
                             // Iterate over keys for maps
                             let loop_env = Environment::new_enclosed(&self.environment);
@@ -529,20 +532,20 @@ impl Interpreter {
                         })
                     }
                 }
-                Ok(Value::List(Rc::new(collected_values))) // Return the collected list
+                Ok(Value::list(&mut self.heap, collected_values)) // Return the collected list
             }
 
             Expression::Unary { op, expr } => {
                 let right_val = self.evaluate(expr)?;
                 match op {
                     crate::ast::UnaryOperator::Negate => {
-                        if let Value::Number(num) = right_val {
-                            Ok(Value::Number(-num))
+                        if let Some(num) = right_val.0.deref().as_number() {
+                            Ok(Value::number(&mut self.heap, -num))
                         } else {
                             Err(EasyScriptError::RuntimeError {
                                 message: format!(
                                     "Unary '-' operator can only be applied to numbers. Got: {}",
-                                    right_val.to_string()
+                                    right_val.type_of()
                                 ),
                                 location: None,
                             })
@@ -558,14 +561,9 @@ impl Interpreter {
                     arg_vals.push(self.evaluate(arg_expr)?);
                 }
 
-                match callee_val {
-                    Value::Function(func_obj) => match func_obj {
-                        crate::value::FunctionObject::Native(native_fn) => native_fn(arg_vals)
-                            .map_err(|e| EasyScriptError::RuntimeError {
-                                message: e,
-                                location: None,
-                            }),
-                        crate::value::FunctionObject::User {
+                match callee_val.0.deref() {
+                    crate::value::Object::Function(func_obj) => match func_obj {
+                        crate::value::FunctionObjectInner::User {
                             params,
                             body,
                             defined_env,
@@ -594,17 +592,62 @@ impl Interpreter {
                             // Execute the function body in the new environment
                             self.execute_block(&body, &function_env)
                         }
+                        crate::value::FunctionObjectInner::Native(native_fn) => {
+                            // 调用原生函数
+                            native_fn(&mut self.heap, arg_vals).map_err(|e| {
+                                EasyScriptError::RuntimeError {
+                                    message: e,
+                                    location: None,
+                                }
+                            })
+                        }
                     },
-                    Value::BoundMethod { receiver, method } => {
-                        let mut final_args = vec![*receiver];
-                        final_args.extend(arg_vals);
-                        method(final_args).map_err(|e| EasyScriptError::RuntimeError {
-                            message: e,
-                            location: None,
-                        })
+                    crate::value::Object::BoundMethod(bound_method_inner) => {
+                        let receiver = bound_method_inner.receiver.clone();
+                        let method_name = bound_method_inner.method_name.clone();
+
+                        // Look up the actual native function from the interpreter's built-in methods
+                        if let Some(methods_for_type) = self.builtin_methods.get(receiver.type_of())
+                        {
+                            if let Some(native_method_fn) =
+                                methods_for_type.get(method_name.as_str())
+                            {
+                                // Prepend the receiver to the arguments
+                                let mut full_args = vec![receiver];
+                                full_args.extend(arg_vals);
+
+                                native_method_fn(&mut self.heap, full_args).map_err(|e| {
+                                    EasyScriptError::RuntimeError {
+                                        message: e,
+                                        location: None,
+                                    }
+                                })
+                            } else {
+                                // This should ideally not happen if Accessor correctly returns BoundMethod
+                                Err(EasyScriptError::RuntimeError {
+                                    message: format!(
+                                        "Internal error: Bound method '{}' not found for type '{}'.",
+                                        method_name,
+                                        receiver.type_of()
+                                    ),
+                                    location: None,
+                                })
+                            }
+                        } else {
+                            Err(EasyScriptError::RuntimeError {
+                                message: format!(
+                                    "Internal error: No built-in methods registered for type '{}'.",
+                                    receiver.type_of()
+                                ),
+                                location: None,
+                            })
+                        }
                     }
                     _ => Err(EasyScriptError::RuntimeError {
-                        message: format!("Cannot call non-function value: {}", callee_val),
+                        message: format!(
+                            "Cannot call non-function or non-method value: {}",
+                            callee_val
+                        ),
                         location: None,
                     }),
                 }
@@ -616,59 +659,68 @@ impl Interpreter {
                 use crate::ast::BinaryOperator;
 
                 match op {
-                    BinaryOperator::Eq => return Ok(Value::Boolean(left_val == right_val)),
-                    BinaryOperator::Neq => return Ok(Value::Boolean(left_val != right_val)),
+                    BinaryOperator::Eq => {
+                        return Ok(Value::boolean(&mut self.heap, left_val == right_val))
+                    }
+                    BinaryOperator::Neq => {
+                        return Ok(Value::boolean(&mut self.heap, left_val != right_val))
+                    }
                     _ => {}
                 }
 
-                match (left_val, right_val) {
-                    (Value::Number(l), Value::Number(r)) => match op {
-                        BinaryOperator::Add => Ok(Value::Number(l + r)),
-                        BinaryOperator::Sub => Ok(Value::Number(l - r)),
-                        BinaryOperator::Mul => Ok(Value::Number(l * r)),
+                let left_obj = left_val.0.deref();
+                let right_obj = right_val.0.deref();
+
+                match (left_obj, right_obj) {
+                    (Object::Number(l), Object::Number(r)) => match op {
+                        BinaryOperator::Add => Ok(Value::number(&mut self.heap, l + r)),
+                        BinaryOperator::Sub => Ok(Value::number(&mut self.heap, l - r)),
+                        BinaryOperator::Mul => Ok(Value::number(&mut self.heap, l * r)),
                         BinaryOperator::Div => {
-                            if r == 0.0 {
+                            if *r == 0.0 {
                                 Err(EasyScriptError::RuntimeError {
                                     message: "Division by zero.".to_string(),
                                     location: None,
                                 })
                             } else {
-                                Ok(Value::Number(l / r))
+                                Ok(Value::number(&mut self.heap, l / r))
                             }
                         }
-                        BinaryOperator::Lt => Ok(Value::Boolean(l < r)),
-                        BinaryOperator::Lte => Ok(Value::Boolean(l <= r)),
-                        BinaryOperator::Gt => Ok(Value::Boolean(l > r)),
-                        BinaryOperator::Gte => Ok(Value::Boolean(l >= r)),
+                        BinaryOperator::Lt => Ok(Value::boolean(&mut self.heap, l < r)),
+                        BinaryOperator::Lte => Ok(Value::boolean(&mut self.heap, l <= r)),
+                        BinaryOperator::Gt => Ok(Value::boolean(&mut self.heap, l > r)),
+                        BinaryOperator::Gte => Ok(Value::boolean(&mut self.heap, l >= r)),
                         _ => Err(EasyScriptError::RuntimeError {
                             message: format!("Unsupported operator '{:?}' for numbers.", op),
                             location: None,
                         }),
                     },
-                    (Value::String(l), Value::String(r)) => match op {
-                        BinaryOperator::Add => Ok(Value::String(format!("{}{}", l, r))),
+                    (Object::String(l), Object::String(r)) => match op {
+                        BinaryOperator::Add => {
+                            Ok(Value::string(&mut self.heap, format!("{}{}", l, r)))
+                        }
                         _ => Err(EasyScriptError::RuntimeError {
                             message: format!("Unsupported operator '{:?}' for strings.", op),
                             location: None,
                         }),
                     },
-                    (Value::List(l), Value::List(r)) => match op {
+                    (Object::List(l), Object::List(r)) => match op {
                         BinaryOperator::Add => {
-                            let mut new_list = (**l).to_vec();
-                            new_list.extend_from_slice(&**r);
-                            Ok(Value::List(Rc::new(new_list)))
+                            let mut new_list = l.to_vec();
+                            new_list.extend_from_slice(r);
+                            Ok(Value::list(&mut self.heap, new_list))
                         }
                         _ => Err(EasyScriptError::RuntimeError {
                             message: format!("Unsupported operator '{:?}' for lists.", op),
                             location: None,
                         }),
                     },
-                    (l, r) => Err(EasyScriptError::RuntimeError {
+                    (_l, _r) => Err(EasyScriptError::RuntimeError {
                         message: format!(
                             "Cannot apply operator '{:?}' to unsupported types: {} and {}",
                             op,
-                            l.type_of(),
-                            r.type_of()
+                            left_val.type_of(),
+                            right_val.type_of()
                         ),
                         location: None,
                     }),
@@ -678,12 +730,12 @@ impl Interpreter {
     }
 
     /// Evaluates a literal value from the AST into a runtime Value.
-    fn evaluate_literal(&self, literal: &LiteralValue) -> Result<Value, EasyScriptError> {
+    fn evaluate_literal(&mut self, literal: &LiteralValue) -> Result<Value, EasyScriptError> {
         Ok(match literal {
-            LiteralValue::Number(n) => Value::Number(*n),
-            LiteralValue::String(s) => Value::String(s.clone()),
-            LiteralValue::Boolean(b) => Value::Boolean(*b),
-            LiteralValue::Nil => Value::Nil,
+            LiteralValue::Number(n) => Value::number(&mut self.heap, *n),
+            LiteralValue::String(s) => Value::string(&mut self.heap, s.clone()),
+            LiteralValue::Boolean(b) => Value::boolean(&mut self.heap, *b),
+            LiteralValue::Nil => Value::nil(&mut self.heap),
         })
     }
 }

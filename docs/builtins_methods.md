@@ -52,6 +52,19 @@
 - **签名**: `input()` 或 `input(prompt)`
 - **返回值**: `string`
 
+### `repr(value)`
+返回一个值的“正式”字符串表示 (developer-friendly representation)。
+- **签名**: `repr(value)`
+- **返回值**: `string`
+- **行为**: 返回一个值的字符串表示，通常是带引号的字符串，或能清晰展示值内部结构的格式。对于字符串，这意味着输出将包含引号。对于复合类型（列表、映射），其内部元素也将以其 `repr` 形式显示。
+- **示例**:
+  ```easyscript
+  repr(1)        // "1"
+  repr("hello")  // "\"hello\""
+  repr([1, "a"]) // "[1, \"a\"]"
+  repr({"k": 1}) // "{\"k\": 1}"
+  ```
+
 ---
 
 ## 内置方法
@@ -127,6 +140,20 @@
 - **签名**: `list.len()`
 - **返回值**: `number`
 - **示例**: `[1, 2, 3].len()` 返回 `3`。
+
+#### `list.push(element)`
+在列表末尾添加一个元素。
+- **签名**: `list.push(element)`
+- **返回值**: `nil`
+- **行为**: 修改列表本身，将指定元素添加到列表的末尾。
+- **示例**:
+  ```easyscript
+  let my_list = [1, 2];
+  my_list.push(3);
+  print(my_list); // [1, 2, 3]
+  my_list.push("hello");
+  print(my_list); // [1, 2, 3, "hello"]
+  ```
 
 ### Map 方法
 

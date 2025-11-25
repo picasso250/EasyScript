@@ -15,6 +15,6 @@ print(str(fun_test));
 // expect_stdout: 123
 // expect_stdout: hello
 // expect_stdout: [1, 2]
-// expect_stdout: {a: 1}
+// expect_stdout: {"a": 1}
 // expect_stdout: <function>
 // expect_stdout: <function>

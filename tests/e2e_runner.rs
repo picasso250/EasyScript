@@ -32,8 +32,8 @@ fn parse_test_file(source: &str) -> (String, Expectation) {
         if let Some((code_part, comment_part)) = line.split_once("// expect:") {
             value_expectation = Some(comment_part.trim().to_string());
             current_code_part = code_part;
-        } 
-        
+        }
+
         // Check for stdout expectation comment (can be on the same line or different)
         if let Some((code_part, comment_part)) = current_code_part.split_once("// expect_stdout:") {
             stdout_expectations.push(comment_part.trim().to_string());
@@ -65,8 +65,20 @@ fn parse_test_file(source: &str) -> (String, Expectation) {
 
 #[test]
 fn run_e2e_tests() {
+    let test_scope = std::env::var("TEST_SCOPE").unwrap_or_else(|_| "all".to_string());
+    let glob_pattern = match test_scope.as_str() {
+        "core" => "tests/e2e/core/**/*.es",
+        "builtin" => "tests/e2e/builtin/**/*.es",
+        _ => "tests/e2e/**/*.es", // Default to all tests
+    };
+
+    println!(
+        "Running E2E tests with scope: '{}' (pattern: {})",
+        test_scope, glob_pattern
+    );
+
     let mut tests_run = 0;
-    for entry in glob("tests/e2e/**/*.es").expect("Failed to read glob pattern") {
+    for entry in glob(glob_pattern).expect("Failed to read glob pattern") {
         match entry {
             Ok(path) => {
                 run_test_file(path);
@@ -127,16 +139,19 @@ fn run_test_file(path: PathBuf) {
             let actual_value_str = format!("{}", value);
 
             if let Some(expected_value) = expectation.value {
+                println!("DEBUG: Comparing actual: {:?}, expected: {:?}", actual_value_str, expected_value);
                 assert_eq!(
                     actual_value_str, expected_value,
-                    "Value expectation mismatch for {:?}!", path
+                    "Value expectation mismatch for {:?}!",
+                    path
                 );
             }
 
             if let Some(expected_stdout) = expectation.stdout {
                 assert_eq!(
                     captured_stdout, expected_stdout,
-                    "Stdout expectation mismatch for {:?}!", path
+                    "Stdout expectation mismatch for {:?}!",
+                    path
                 );
             }
             println!("   PASS: {:?}", path.display());
