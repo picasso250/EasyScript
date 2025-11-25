@@ -12,7 +12,7 @@ pub struct Interpreter {
 
 impl Interpreter {
     pub fn new() -> Self {
-        let mut interpreter = Interpreter {
+        let interpreter = Interpreter {
             // Create the top-level (global) environment.
             environment: Environment::new(),
         };
