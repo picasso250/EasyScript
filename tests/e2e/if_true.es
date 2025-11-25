@@ -2,7 +2,7 @@
 
 let a = 10;
 if a > 5 {
-  "condition is true";
+  "condition is true"
 }
 
 // expect: condition is true

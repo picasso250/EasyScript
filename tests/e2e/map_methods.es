@@ -4,7 +4,7 @@ print(m1.len());        // Expected: 2
 let m2 = {};
 print(m2.len());        // Expected: 0
 
-let m3 = {"key": "value", 10: true, false: nil};
+let m3 = {"key": "value", 10: true, false: nil}; // 键改回数字和布尔值
 print(m3.len());        // Expected: 3
 
 // Test calling len() as a global function (should still work)

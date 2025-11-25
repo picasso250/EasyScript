@@ -5,5 +5,5 @@ let a = 10;
 let b = 20;
 
 // Number comparisons
-(a < b) == true;
+(a < b) == true
 // expect: true

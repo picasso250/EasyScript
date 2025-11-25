@@ -91,7 +91,7 @@ pub enum LiteralValue {
 // 辅助结构：表达式块
 #[derive(Debug, Clone)]
 pub struct Block {
-    pub expressions: Vec<Expression>,
+    pub expressions: Vec<(Expression, bool)>, // (Expression, terminated_by_semicolon)
 }
 
 // 辅助结构：赋值左值 (LValue)

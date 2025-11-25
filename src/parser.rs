@@ -15,15 +15,27 @@ impl Parser {
     }
 
     pub fn parse(mut self) -> Result<Block, EasyScriptError> {
-        // 返回 Result<Block, EasyScriptError>
         let mut expressions = Vec::new();
+        eprintln!("DEBUG_PARSER: Tokens length: {}", self.tokens.len()); // DEBUG
         while !self.is_at_end() {
-            expressions.push(self.expression()?); // 错误直接通过 '?' 传播
-                                                  // 允许多个分号或最后一个表达式后没有分号
+            eprintln!(
+                "DEBUG_PARSER: Current: {}, Is at end: {}",
+                self.current,
+                self.is_at_end()
+            ); // DEBUG
+            let expr = self.expression()?;
+            let mut terminated_by_semicolon = false;
+            // Allow multiple semicolons or no semicolon after the last expression
             while self.match_tokens(&[Token::Semicolon]) {
-                // consume all semicolons
+                terminated_by_semicolon = true;
             }
+            expressions.push((expr, terminated_by_semicolon));
         }
+        eprintln!(
+            "DEBUG_PARSER: Final Current: {}, Is at end: {}",
+            self.current,
+            self.is_at_end()
+        ); // DEBUG
         Ok(Block { expressions })
     }
 
@@ -320,9 +332,13 @@ impl Parser {
         let mut expressions = Vec::new();
 
         while !self.check(&Token::RightBrace) && !self.is_at_end() {
-            expressions.push(self.expression()?);
-            // Eat trailing semicolons
-            while self.match_tokens(&[Token::Semicolon]) {}
+            let expr = self.expression()?;
+            let mut terminated_by_semicolon = false;
+            // Eat trailing semicolons and mark if this expression was terminated by one
+            while self.match_tokens(&[Token::Semicolon]) {
+                terminated_by_semicolon = true;
+            }
+            expressions.push((expr, terminated_by_semicolon));
         }
 
         self.consume(&Token::RightBrace, "Expect '}' after block.")?;

@@ -2,9 +2,9 @@
 
 let a = 3;
 if a > 5 {
-  "condition is true";
+  "condition is true"
 } else {
-  "condition is false";
+  "condition is false"
 }
 
 // expect: condition is false

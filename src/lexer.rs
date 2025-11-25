@@ -50,7 +50,7 @@ impl<'a> Lexer<'a> {
 
         while self.peek().is_some() {
             self.start = self.current;
-            self.scan_token()?; // scan_token 现在返回 Result<()>
+            self.scan_token()?; // scan_token 现在返回 Result(())
         }
 
         // 添加文件结束符
@@ -167,7 +167,7 @@ impl<'a> Lexer<'a> {
 
     // 处理标识符和关键字
     fn handle_identifier(&mut self) -> Result<(), EasyScriptError> {
-        // 返回 Result<()>
+        // 返回 Result(())
         while self
             .peek()
             .map_or(false, |c| c.is_ascii_alphanumeric() || c == '_')
@@ -190,7 +190,7 @@ impl<'a> Lexer<'a> {
     // ---------------------- 核心分发器 ----------------------
 
     fn scan_token(&mut self) -> Result<(), EasyScriptError> {
-        // 返回 Result<()>
+        // 返回 Result(())
         let token_start_line = self.line; // 记录当前 token 的起始行
         let token_start_column = self.column; // 记录当前 token 的起始列
 
@@ -198,7 +198,6 @@ impl<'a> Lexer<'a> {
             Some(c) => c,
             None => return Ok(()), // 达到文件末尾
         };
-
         match c {
             // 单字符 Token
             '(' => self.add_token(Token::LeftParen),
@@ -231,7 +230,7 @@ impl<'a> Lexer<'a> {
                     Token::BangEqual
                 } else {
                     return self.error(
-                        "Unexpected character '!'",
+                        "Unexpected character '\"'",
                         token_start_line,
                         token_start_column,
                     );
@@ -297,12 +296,12 @@ impl<'a> Lexer<'a> {
             '\n' => {} // advance 已经处理了行和列更新
 
             // 字符串字面量
-            '"' => self.handle_string(token_start_line, token_start_column)?, // handle_string 现在返回 Result
+            '"' => self.handle_string(token_start_line, token_start_column)?,
             // 数字字面量 (0-9 或 .)
-            c if c.is_ascii_digit() => self.handle_number(token_start_line, token_start_column)?, // handle_number 现在返回 Result
+            c if c.is_ascii_digit() => self.handle_number(token_start_line, token_start_column)?,
 
             // 标识符/关键字 (字母或下划线开头)
-            c if c.is_ascii_alphabetic() || c == '_' => self.handle_identifier()?,
+            c if c.is_ascii_alphanumeric() || c == '_' => self.handle_identifier()?,
 
             // 未知字符
             _ => {
@@ -320,3 +319,196 @@ impl<'a> Lexer<'a> {
 // 别忘了在 Cargo.toml 中添加 lazy_static
 // 由于我们不在 Coding Mode 修改 Cargo.toml，所以我们假设用户会自行添加或我们稍后补充。
 // 鉴于这是一个关键依赖，我将提醒用户，并提供 Cargo.toml 的修改。
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::token::Literal;
+
+    fn setup_lexer(source: &str) -> Vec<Token> {
+        let lexer = Lexer::new(source);
+        lexer.scan_tokens().expect("Lexing failed")
+    }
+
+    #[test]
+    fn test_empty_input() {
+        let tokens = setup_lexer("");
+        assert_eq!(tokens, vec![Token::Eof]);
+    }
+
+    #[test]
+    fn test_single_tokens() {
+        let tokens = setup_lexer("(){}[],.:;+-*/%^=!=<<>>&&||");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::LeftParen,
+                Token::RightParen,
+                Token::LeftBrace,
+                Token::RightBrace,
+                Token::LeftBracket,
+                Token::RightBracket,
+                Token::Comma,
+                Token::Dot,
+                Token::Colon,
+                Token::Semicolon,
+                Token::Plus,
+                Token::Minus,
+                Token::Star,
+                Token::Slash,
+                Token::Percent,
+                Token::Caret,
+                Token::Equal,
+                Token::BangEqual,
+                Token::ShiftLeft,
+                Token::ShiftRight,
+                Token::And,
+                Token::Or,
+                Token::Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn test_keywords() {
+        let tokens = setup_lexer("if else for fun in true false nil let");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::KeywordIf,
+                Token::KeywordElse,
+                Token::KeywordFor,
+                Token::KeywordFun,
+                Token::KeywordIn,
+                Token::KeywordTrue,
+                Token::KeywordFalse,
+                Token::KeywordNil,
+                Token::KeywordLet,
+                Token::Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn test_identifiers() {
+        let tokens = setup_lexer("foo bar _baz qux123");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Identifier("foo".to_string()),
+                Token::Identifier("bar".to_string()),
+                Token::Identifier("_baz".to_string()),
+                Token::Identifier("qux123".to_string()),
+                Token::Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn test_numbers() {
+        let tokens = setup_lexer("123 45.67 0");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Literal(Literal::Number(123.0)),
+                Token::Literal(Literal::Number(45.67)),
+                Token::Literal(Literal::Number(0.0)),
+                Token::Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn test_strings() {
+        let tokens = setup_lexer("\"hello\" \"world\"");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Literal(Literal::String("hello".to_string())),
+                Token::Literal(Literal::String("world".to_string())),
+                Token::Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn test_comments() {
+        let tokens = setup_lexer("let a = 1; // This is a comment\nlet b = 2;");
+        assert_eq!(
+            tokens,
+            vec![
+                Token::KeywordLet,
+                Token::Identifier("a".to_string()),
+                Token::Equal,
+                Token::Literal(Literal::Number(1.0)),
+                Token::Semicolon,
+                Token::KeywordLet,
+                Token::Identifier("b".to_string()),
+                Token::Equal,
+                Token::Literal(Literal::Number(2.0)),
+                Token::Semicolon,
+                Token::Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn test_multi_line_input() {
+        let source = "let a = 10;\nlet b = 20;\na + b";
+        let tokens = setup_lexer(source);
+        assert_eq!(tokens.len(), 14); // 13 tokens + Eof
+        assert_eq!(
+            tokens,
+            vec![
+                Token::KeywordLet,
+                Token::Identifier("a".to_string()),
+                Token::Equal,
+                Token::Literal(Literal::Number(10.0)),
+                Token::Semicolon,
+                Token::KeywordLet,
+                Token::Identifier("b".to_string()),
+                Token::Equal,
+                Token::Literal(Literal::Number(20.0)),
+                Token::Semicolon,
+                Token::Identifier("a".to_string()),
+                Token::Plus,
+                Token::Identifier("b".to_string()),
+                Token::Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn test_multi_line_with_empty_lines() {
+        let source = "let a = 10;\n\nlet b = 20;";
+        let tokens = setup_lexer(source);
+        assert_eq!(tokens.len(), 11);
+        assert_eq!(
+            tokens,
+            vec![
+                Token::KeywordLet,
+                Token::Identifier("a".to_string()),
+                Token::Equal,
+                Token::Literal(Literal::Number(10.0)),
+                Token::Semicolon,
+                Token::KeywordLet,
+                Token::Identifier("b".to_string()),
+                Token::Equal,
+                Token::Literal(Literal::Number(20.0)),
+                Token::Semicolon,
+                Token::Eof
+            ]
+        );
+    }
+
+    #[test]
+    fn test_invalid_character() {
+        let lexer = Lexer::new("@");
+        let result = lexer.scan_tokens();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "[Lexer Error at line 1 column 1]: Unexpected character: @"
+        );
+    }
+}

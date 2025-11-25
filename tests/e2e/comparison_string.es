@@ -4,6 +4,5 @@ let a = "hello";
 let b = "world";
 
 // String equality
-a != b;
-
+a != b
 // expect: true

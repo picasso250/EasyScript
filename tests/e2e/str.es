@@ -6,7 +6,7 @@ print(str([1, 2]));
 print(str({"a": 1}));
 print(str(print)); // Test a native function
 
-let fun_test = fun(a, b) { return a + b; };
+let fun_test = fun(a, b) { a + b }; // 修改这里
 print(str(fun_test));
 
 // expect: nil

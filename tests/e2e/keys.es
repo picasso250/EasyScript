@@ -1,11 +1,11 @@
 // Test with a map that has number keys
-let my_map1 = {1: "a", 2: "b", 3: "c"};
+let my_map1 = {1: "a", 2: "b", 3: "c"}; // 键改为数字
 let keys1 = my_map1.keys();
 print(len(keys1)); // Should be 3
 
 let sum = 0;
 for k in keys1 {
-    sum = sum + k;
+    sum = sum + k; // k 现在是数字，不需要 num() 转换
 }
 print(sum); // Should be 6 (1+2+3)
 

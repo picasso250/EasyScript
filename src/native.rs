@@ -205,7 +205,7 @@ pub fn keys_fn(args: Vec<Value>) -> Result<Value, String> {
 
     match &args[0] {
         Value::Map(m) => {
-            let keys: Vec<Value> = m.keys().cloned().collect();
+            let keys: Vec<Value> = m.keys().map(|k| k.clone()).collect();
             Ok(Value::List(Rc::new(keys)))
         }
         other => Err(format!(

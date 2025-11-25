@@ -2,12 +2,12 @@
 
 let a = 10;
 let result = if a == 1 {
-  "one";
+  "one"
 } else if a > 5 {
-  "greater than five";
+  "greater than five"
 } else {
-  "less than or equal to five";
+  "less than or equal to five"
 };
-result;
+result
 
 // expect: greater than five

@@ -90,6 +90,10 @@ impl Interpreter {
     pub fn run(&mut self, program: &Block) -> Result<Value, EasyScriptError> {
         // 克隆 environment，使其与 self 的可变借用不冲突
         let current_env = Rc::clone(&self.environment);
+        eprintln!(
+            "DEBUG: program.expressions length: {}",
+            program.expressions.len()
+        ); // DEBUG line
         self.execute_block(program, &current_env)
     }
 
@@ -113,8 +117,11 @@ impl Interpreter {
         self.environment = Rc::clone(env);
 
         let mut last_value = Value::Nil;
-        for expr in &block.expressions {
+        for (expr, terminated_by_semicolon) in &block.expressions {
             last_value = self.evaluate(expr)?;
+            if *terminated_by_semicolon {
+                last_value = Value::Nil; // If terminated by semicolon, return nil
+            }
         }
 
         // Restore the previous environment.
@@ -136,14 +143,27 @@ impl Interpreter {
             }
 
             Expression::MapLiteral(expr_pairs) => {
-                let mut map = std::collections::HashMap::new();
+                let mut map = std::collections::HashMap::<Value, Value>::new(); // 修改这里
                 for (key_expr, value_expr) in expr_pairs {
                     let key = self.evaluate(key_expr)?;
                     let value = self.evaluate(value_expr)?;
-                    // For now, assume keys are simple types that implement Hash and Eq.
-                    // Value::List and Value::Map are not hashable by default, so inserting them here
-                    // would cause a panic or incorrect behavior if they were allowed as keys.
-                    map.insert(key, value);
+                    
+                    // Map keys must be primitive types (String, Number, Boolean)
+                    match key {
+                        Value::String(_) | Value::Number(_) | Value::Boolean(_) => {
+                            // These types are hashable and allowed as keys
+                            map.insert(key, value);
+                        },
+                        _ => {
+                            return Err(EasyScriptError::RuntimeError {
+                                message: format!(
+                                    "Map keys must be primitive types (String, Number, Boolean), but got '{}'.",
+                                    key.type_of()
+                                ),
+                                location: None,
+                            })
+                        }
+                    };
                 }
                 Ok(Value::Map(Rc::new(map)))
             }
@@ -202,11 +222,10 @@ impl Interpreter {
                             });
                         }
 
-                        Ok(Value::Nil) // 赋值表达式返回 nil
+                        Ok(value_to_assign) // 赋值表达式现在返回被赋的值
                     }
 
                     crate::ast::LValue::IndexAccess { target, key } => {
-                        let value_to_assign = self.evaluate(value)?;
                         let key_val = self.evaluate(key)?;
 
                         match &**target {
@@ -242,7 +261,18 @@ impl Interpreter {
                                             }
                                             Value::Map(map_rc) => {
                                                 let mut_map = Rc::make_mut(map_rc);
-                                                mut_map.insert(key_val, value_to_assign.clone());
+                                                // 检查 key_val 是否是允许的键类型
+                                                match key_val {
+                                                    Value::String(_) | Value::Number(_) | Value::Boolean(_) => {
+                                                        mut_map.insert(key_val, value_to_assign.clone()); // 直接使用 key_val
+                                                    },
+                                                    _ => {
+                                                        modification_err = Some(EasyScriptError::RuntimeError {
+                                                            message: format!("Map keys must be primitive types (String, Number, Boolean) for assignment. Got: {}", key_val.type_of()),
+                                                            location: None,
+                                                        });
+                                                    }
+                                                }
                                             }
                                             _ => {
                                                 modification_err = Some(EasyScriptError::RuntimeError {
@@ -283,7 +313,6 @@ impl Interpreter {
                         target,
                         property_name,
                     } => {
-                        let value_to_assign = self.evaluate(value)?;
                         match &**target {
                             Expression::Identifier(ref target_name) => {
                                 if let Some(target_env_ref) =
@@ -299,7 +328,7 @@ impl Interpreter {
                                             Value::Map(map_rc) => {
                                                 let mut_map = Rc::make_mut(map_rc);
                                                 mut_map.insert(
-                                                    Value::String(property_name.clone()),
+                                                    Value::String(property_name.clone()), // 修改这里
                                                     value_to_assign.clone(),
                                                 );
                                             }
@@ -376,15 +405,24 @@ impl Interpreter {
                             }
 
                             Value::Map(map) => {
-                                if let Some(val) = map.get(&key_val) {
-                                    // Uses Value's PartialEq for key lookup
-
-                                    Ok(val.clone())
-                                } else {
-                                    Err(EasyScriptError::RuntimeError {
-                                        message: format!("Key not found in map: {}", key_val),
-                                        location: None,
-                                    })
+                                // 检查 key_val 是否是允许的键类型
+                                match key_val {
+                                    Value::String(_) | Value::Number(_) | Value::Boolean(_) => {
+                                        if let Some(val) = map.get(&key_val) { // 修改这里
+                                            Ok(val.clone())
+                                        } else {
+                                            Ok(Value::Nil) // Return nil if property not found in map
+                                        }
+                                    },
+                                    _ => {
+                                        return Err(EasyScriptError::RuntimeError {
+                                            message: format!(
+                                                "Map keys must be primitive types (String, Number, Boolean). Got: {}",
+                                                key_val.type_of()
+                                            ),
+                                            location: None,
+                                        })
+                                    }
                                 }
                             }
 
@@ -410,8 +448,8 @@ impl Interpreter {
                         // 2. Fallback to map property lookup
                         match target_val {
                             Value::Map(map) => {
-                                let key_val = Value::String(property_name.clone());
-                                if let Some(val) = map.get(&key_val) {
+                                let key_val = Value::String(property_name.clone()); // 将 String 包装成 Value::String
+                                if let Some(val) = map.get(&key_val) { // 修改这里
                                     Ok(val.clone())
                                 } else {
                                     Ok(Value::Nil) // Return nil if property not found in map

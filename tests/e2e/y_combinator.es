@@ -4,11 +4,11 @@
 let G = fun (rec) {
     fun (n) {
         if n == 0 {
-            1;
+            1
         } else {
-            n * rec(n - 1);
-        };
-    };
+            n * rec(n - 1)
+        }
+    }
 };
 
 // Y 组合子本身
@@ -18,12 +18,12 @@ let Y = fun (f) {
     let x_builder = fun (g) {
         // 这是 f(y(y)) 中的 y 匿名函数
         f(fun (arg) {
-            (g(g))(arg); // 核心自应用
-        });
+            (g(g))(arg)
+        })
     };
-    x_builder(x_builder); // 应用 x_builder 到自身
+    x_builder(x_builder)
 };
 
 let factorial = Y(G);
-factorial(5); // 5 * 4 * 3 * 2 * 1 = 120
+factorial(5) // 5 * 4 * 3 * 2 * 1 = 120
 // expect: 120

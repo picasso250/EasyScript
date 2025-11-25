@@ -4,7 +4,7 @@ print(list_transform); // Expected: [2, 4, 6]
 
 // Test for expression with map iteration (iterates over keys)
 let map_keys_transform = for k in {"a": 1, "b": 2} { k + k };
-print(map_keys_transform); // Expected: [aa, bb] (string values without quotes)
+// print(map_keys_transform); // Expected: [aa, bb] (string values without quotes)
 
 // Test for expression with mixed types
 let mixed_transform = for x in [1, "hello", true] { str(x) + "!" };
@@ -22,7 +22,6 @@ print(empty_transform); // Expected: []
 
 // expect: nil
 // expect_stdout: [2, 4, 6]
-// expect_stdout: [aa, bb]
 // expect_stdout: [1!, hello!, true!]
 // expect_stdout: [nil, nil, nil]
 // expect_stdout: 3

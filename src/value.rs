@@ -163,7 +163,8 @@ impl PartialEq for Value {
             (Value::Boolean(a), Value::Boolean(b)) => a == b,
             (Value::Number(a), Value::Number(b)) => a == b,
             (Value::String(a), Value::String(b)) => a == b,
-            // 默认 List/Map 比较引用地址，复杂值比较暂不实现
+            (Value::List(a), Value::List(b)) => a == b, // Structural comparison
+            (Value::Map(a), Value::Map(b)) => a == b,   // Structural comparison
             _ => false,
         }
     }
@@ -177,11 +178,15 @@ impl Hash for Value {
         match self {
             Value::Nil => 0.hash(state),
             Value::Boolean(b) => b.hash(state),
-            // 注意：浮点数 Hash 需要处理 NaN/Inf，这里使用简单的比特表示
             Value::Number(n) => n.to_bits().hash(state),
             Value::String(s) => s.hash(state),
-            // List/Map 默认不可作为 Hash Key，若强行要用，需要特殊的标识符或引用 Hash
-            _ => { /* List/Map are not hashable by default, so we do nothing here */ }
+            // List, Map, Function, BoundMethod 无法作为 HashMap 键，尝试哈希时 panic
+            Value::List(_) => panic!("List values cannot be used as HashMap keys"),
+            Value::Map(_) => panic!("Map values cannot be used as HashMap keys"),
+            Value::Function(_) => panic!("Function values cannot be used as HashMap keys"),
+            Value::BoundMethod { .. } => {
+                panic!("BoundMethod values cannot be used as HashMap keys")
+            }
         }
     }
 }

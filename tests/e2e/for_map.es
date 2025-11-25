@@ -8,5 +8,5 @@ for k in my_map {
         sum_values = sum_values + 20;
     };
 }
-sum_values;
+sum_values
 // expect: 30

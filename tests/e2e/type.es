@@ -7,7 +7,7 @@ print(type({"a": 1}));
 print(type(print)); // Test a native function
 
 // Test a user-defined function
-let my_func_test = fun(a, b) { return a + b; };
+let my_func_test = fun(a, b) { a + b }; // 修改这里
 print(type(my_func_test));
 
 
@@ -20,4 +20,3 @@ print(type(my_func_test));
 // expect_stdout: map
 // expect_stdout: function
 // expect_stdout: function
-

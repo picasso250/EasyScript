@@ -11,7 +11,7 @@ print(num("-10.5"));      // Should be -10.5
 print(num("abc"));       // Should be nil
 print(num([1]));         // Should be nil
 print(num({"a": 1}));    // Should be nil
-let my_fun = fun(a) { return a; };
+let my_fun = fun(a) { a }; // 修改这里
 print(num(my_fun)); // Should be nil
 
 // The final value of the script is the result of the last expression.
