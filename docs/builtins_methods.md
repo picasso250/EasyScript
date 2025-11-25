@@ -85,6 +85,41 @@
 - **行为**: 返回 `substring` 在字符串中第一次出现的起始索引 (0-based)。如果未找到，则返回 `nil`。
 - **示例**: `"hello world".find("world")` 返回 `6`。`"hello".find("xyz")` 返回 `nil`。
 
+#### `string.replace(old, new)`
+替换字符串中所有匹配的子字符串。
+- **签名**: `string.replace(old, new)`
+- **返回值**: `string`
+- **行为**: 返回一个新的字符串，其中所有 `old` 子字符串的出现都替换为 `new`。
+- **示例**: `"hello world".replace("o", "x")` 返回 `"hellx wxrld"`。
+
+#### `string.split(delimiter)`
+将字符串分割成列表。
+- **签名**: `string.split(delimiter)`
+- **返回值**: `list`
+- **行为**: 返回一个列表，其中包含按 `delimiter` 分割后的字符串子串。
+- **示例**: `"a,b,c".split(",")` 返回 `["a", "b", "c"]`。
+
+#### `string.trim()`
+移除字符串两端的空白字符。
+- **签名**: `string.trim()`
+- **返回值**: `string`
+- **行为**: 返回一个新的字符串，其中移除了原始字符串开头和结尾的所有空白字符。
+- **示例**: `"  hello world  ".trim()` 返回 `"hello world"`。
+
+#### `string.to_upper()`
+将字符串转换为大写。
+- **签名**: `string.to_upper()`
+- **返回值**: `string`
+- **行为**: 返回一个新的字符串，其中所有字符都转换为大写。
+- **示例**: `"Hello".to_upper()` 返回 `"HELLO"`。
+
+#### `string.to_lower()`
+将字符串转换为小写。
+- **签名**: `string.to_lower()`
+- **返回值**: `string`
+- **行为**: 返回一个新的字符串，其中所有字符都转换为小写。
+- **示例**: `"Hello".to_lower()` 返回 `"hello"`。
+
 ### List 方法
 
 #### `list.len()`
