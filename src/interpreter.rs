@@ -39,15 +39,15 @@ impl Interpreter {
                 ))),
             );
             env.assign(
-                "string",
+                "str",
                 Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::string_fn,
+                    native::str_fn,
                 ))),
             );
             env.assign(
-                "number",
+                "num",
                 Value::Function(crate::value::FunctionObject::Native(Rc::new(
-                    native::number_fn,
+                    native::num_fn,
                 ))),
             );
             env.assign(
@@ -66,6 +66,12 @@ impl Interpreter {
                 "keys",
                 Value::Function(crate::value::FunctionObject::Native(Rc::new(
                     native::keys_fn,
+                ))),
+            );
+            env.assign(
+                "values",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::values_fn,
                 ))),
             );
         } // env 借用在此处结束

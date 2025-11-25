@@ -44,7 +44,7 @@ pub fn type_fn(args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native string conversion function
-pub fn string_fn(args: Vec<Value>) -> Result<Value, String> {
+pub fn str_fn(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!(
             "string() expected 1 argument, but got {}",
@@ -56,7 +56,7 @@ pub fn string_fn(args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native number conversion function
-pub fn number_fn(args: Vec<Value>) -> Result<Value, String> {
+pub fn num_fn(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         // 参数数量错误仍然抛出运行时错误，因为这是函数用法错误
         return Err(format!(
@@ -143,6 +143,27 @@ pub fn keys_fn(args: Vec<Value>) -> Result<Value, String> {
         }
         other => Err(format!(
             "keys() expected a map, but got type '{}'.",
+            other.type_of()
+        )),
+    }
+}
+
+// Native values function
+pub fn values_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "values() expected 1 argument, but got {}",
+            args.len()
+        ));
+    }
+
+    match &args[0] {
+        Value::Map(m) => {
+            let values: Vec<Value> = m.values().cloned().collect();
+            Ok(Value::List(Rc::new(values)))
+        }
+        other => Err(format!(
+            "values() expected a map, but got type '{}'.",
             other.type_of()
         )),
     }
