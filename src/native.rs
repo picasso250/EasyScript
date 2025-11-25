@@ -29,6 +29,22 @@ pub fn init_builtin_methods_map() -> HashMap<&'static str, HashMap<&'static str,
         "contains",
         (Rc::new(move |args| str_contains_fn(args))) as NativeFunction,
     );
+    string_methods.insert(
+        "replace",
+        (Rc::new(move |args| str_replace_fn(args))) as NativeFunction,
+    );
+    string_methods.insert(
+        "split",
+        (Rc::new(move |args| str_split_fn(args))) as NativeFunction,
+    );
+    string_methods.insert(
+        "to_upper",
+        (Rc::new(move |args| str_to_upper_fn(args))) as NativeFunction,
+    );
+    string_methods.insert(
+        "to_lower",
+        (Rc::new(move |args| str_to_lower_fn(args))) as NativeFunction,
+    );
     methods.insert("string", string_methods);
 
     // --- List Methods ---
@@ -153,6 +169,125 @@ pub fn str_find_fn(args: Vec<Value>) -> Result<Value, String> {
         Ok(Value::Number(char_index as f64))
     } else {
         Ok(Value::Nil)
+    }
+}
+
+// Native string replace method
+pub fn str_replace_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "replace() expected 3 arguments (self, old, new), but got {}",
+            args.len()
+        ));
+    }
+
+    let self_string = match &args[0] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "replace() method expected a string as the receiver, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    let old_substring = match &args[1] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "replace() method expected a string as the 'old' argument, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    let new_substring = match &args[2] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "replace() method expected a string as the 'new' argument, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    Ok(Value::String(
+        self_string.replace(old_substring, new_substring)
+    ))
+}
+
+// Native string split method
+pub fn str_split_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "split() expected 2 arguments (self, delimiter), but got {}",
+            args.len()
+        ));
+    }
+
+    let self_string = match &args[0] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "split() method expected a string as the receiver, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    let delimiter = match &args[1] {
+        Value::String(s) => s,
+        other => {
+            return Err(format!(
+                "split() method expected a string as the delimiter argument, but got type '{}'.",
+                other.type_of()
+            ));
+        }
+    };
+
+    // If delimiter is empty, split by characters
+    let parts: Vec<Value> = if delimiter.is_empty() {
+        self_string.chars().map(|c| Value::String(c.to_string())).collect()
+    } else {
+        self_string.split(delimiter).map(|s| Value::String(s.to_string())).collect()
+    };
+    
+    Ok(Value::List(Rc::new(parts)))
+}
+
+// Native string to_upper method
+pub fn str_to_upper_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "to_upper() expected 1 argument (self), but got {}",
+            args.len()
+        ));
+    }
+
+    match &args[0] {
+        Value::String(s) => Ok(Value::String(s.to_uppercase())),
+        other => Err(format!(
+            "to_upper() method expected a string, but got type '{}'.",
+            other.type_of()
+        )),
+    }
+}
+
+// Native string to_lower method
+pub fn str_to_lower_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "to_lower() expected 1 argument (self), but got {}",
+            args.len()
+        ));
+    }
+
+    match &args[0] {
+        Value::String(s) => Ok(Value::String(s.to_lowercase())),
+        other => Err(format!(
+            "to_lower() method expected a string, but got type '{}'.",
+            other.type_of()
+        )),
     }
 }
 

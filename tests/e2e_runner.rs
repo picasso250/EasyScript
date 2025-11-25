@@ -26,12 +26,23 @@ fn parse_test_file(source: &str) -> (String, Expectation) {
     let mut stdout_expectations: Vec<String> = Vec::new();
 
     for line in source.lines() {
-        if let Some(val) = line.strip_prefix("// expect:") {
-            value_expectation = Some(val.trim().to_string());
-        } else if let Some(stdout_val) = line.strip_prefix("// expect_stdout:") {
-            stdout_expectations.push(stdout_val.trim().to_string());
-        } else {
-            code_lines.push(line);
+        let mut current_code_part = line;
+
+        // Check for value expectation comment
+        if let Some((code_part, comment_part)) = line.split_once("// expect:") {
+            value_expectation = Some(comment_part.trim().to_string());
+            current_code_part = code_part;
+        } 
+        
+        // Check for stdout expectation comment (can be on the same line or different)
+        if let Some((code_part, comment_part)) = current_code_part.split_once("// expect_stdout:") {
+            stdout_expectations.push(comment_part.trim().to_string());
+            current_code_part = code_part;
+        }
+
+        let trimmed_code_part = current_code_part.trim_end();
+        if !trimmed_code_part.is_empty() {
+            code_lines.push(trimmed_code_part);
         }
     }
 
