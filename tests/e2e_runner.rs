@@ -139,7 +139,10 @@ fn run_test_file(path: PathBuf) {
             let actual_value_str = format!("{}", value);
 
             if let Some(expected_value) = expectation.value {
-                println!("DEBUG: Comparing actual: {:?}, expected: {:?}", actual_value_str, expected_value);
+                println!(
+                    "DEBUG: Comparing actual: {:?}, expected: {:?}",
+                    actual_value_str, expected_value
+                );
                 assert_eq!(
                     actual_value_str, expected_value,
                     "Value expectation mismatch for {:?}!",

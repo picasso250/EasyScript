@@ -79,7 +79,10 @@ impl Interpreter {
             );
             global_env.assign(
                 "repr", // Register the new repr function
-                Value::function(&mut interpreter.heap, FunctionObjectInner::Native(Rc::new(crate::native::repr_fn))),
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::repr_fn)),
+                ),
             );
         } // The mutable borrow of global_env is dropped here.
 

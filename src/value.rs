@@ -666,24 +666,24 @@ impl Value {
                 } else {
                     n.to_string()
                 }
-            },
+            }
             Object::String(s) => format!("{:?}", s), // Explicitly quote strings for repr
             Object::List(list) => {
                 let elements: Vec<String> = list.iter().map(|item| item.repr_string()).collect();
                 format!("[{}]", elements.join(", "))
-            },
+            }
             Object::Map(map) => {
-                let pairs: Vec<String> = map.iter().map(|(key, val)| {
-                    format!("{}: {}", key.repr_string(), val.repr_string())
-                }).collect();
+                let pairs: Vec<String> = map
+                    .iter()
+                    .map(|(key, val)| format!("{}: {}", key.repr_string(), val.repr_string()))
+                    .collect();
                 format!("{{{}}}", pairs.join(", "))
-            },
+            }
             Object::Function(_) => "<function>".to_string(),
             Object::BoundMethod(_) => "<bound method>".to_string(),
         }
     }
 }
-
 
 // GcRef 句柄已经实现了 PartialEq, Eq, Hash，因此 Value 只需要派生这些特性。
 // 不需要再手动实现。
