@@ -7,6 +7,13 @@ print(number(nil));          // Should be 0
 print(number("  789  "));    // Should be 789
 print(number("-10.5"));      // Should be -10.5
 
+// New test cases for failure scenarios (should return nil)
+print(number("abc"));       // Should be nil
+print(number([1]));         // Should be nil
+print(number({"a": 1}));    // Should be nil
+let my_fun = fun(a) { return a; };
+print(number(my_fun)); // Should be nil
+
 // The final value of the script is the result of the last expression.
 // The last expression is `print(...)`, which returns nil.
 // expect: nil
@@ -19,3 +26,7 @@ print(number("-10.5"));      // Should be -10.5
 // expect_stdout: 0
 // expect_stdout: 789
 // expect_stdout: -10.5
+// expect_stdout: nil
+// expect_stdout: nil
+// expect_stdout: nil
+// expect_stdout: nil

@@ -50,6 +50,12 @@ impl Interpreter {
                     native::number_fn,
                 ))),
             );
+            env.assign(
+                "input",
+                Value::Function(crate::value::FunctionObject::Native(Rc::new(
+                    native::input_fn,
+                ))),
+            );
         } // env 借用在此处结束
 
         interpreter

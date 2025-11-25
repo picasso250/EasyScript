@@ -54,22 +54,53 @@ pub fn string_fn(args: Vec<Value>) -> Result<Value, String> {
 // Native number conversion function
 pub fn number_fn(args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
+        // 参数数量错误仍然抛出运行时错误，因为这是函数用法错误
         return Err(format!("number() expected 1 argument, but got {}", args.len()));
     }
 
     match &args[0] {
         Value::Number(n) => Ok(Value::Number(*n)),
         Value::String(s) => {
+            // 尝试解析，失败则返回 nil
             match s.trim().parse::<f64>() {
                 Ok(n) => Ok(Value::Number(n)),
-                Err(_) => Err(format!("Could not convert string '{}' to number.", s)),
+                Err(_) => Ok(Value::Nil), // 转换失败时返回 nil
             }
         }
         Value::Boolean(b) => Ok(Value::Number(if *b { 1.0 } else { 0.0 })),
         Value::Nil => Ok(Value::Number(0.0)),
-        other => Err(format!(
-            "number() does not support converting type '{}'.",
-            other.type_of()
-        )),
+        other => {
+            // 不支持的类型返回 nil
+            Ok(Value::Nil)
+        }
     }
+}
+
+// Native input function
+pub fn input_fn(args: Vec<Value>) -> Result<Value, String> {
+    if args.len() > 1 {
+        return Err(format!(
+            "input() expected 0 or 1 argument, but got {}",
+            args.len()
+        ));
+    }
+
+    let mut line = String::new();
+
+    // Print prompt if provided
+    if let Some(prompt_value) = args.get(0) {
+        // 使用 print! 而不是 println!，因为用户可能希望在同一行输入
+        print!("{}", prompt_value);
+        // 确保提示符被立即刷新到控制台
+        use std::io::Write;
+        std::io::stdout().flush().map_err(|e| e.to_string())?;
+    }
+
+    // Read a line from stdin
+    std::io::stdin()
+        .read_line(&mut line)
+        .map_err(|e| e.to_string())?;
+
+    // Remove trailing newline (platform dependent: \n or \r\n)
+    Ok(Value::String(line.trim_end_matches(&['\n', '\r'][..]).to_string()))
 }
