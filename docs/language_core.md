@@ -214,15 +214,6 @@ for (key in mySettings) { // 注意：for-in 遍历 map 时，得到的是 key
 };
 ```
 
-#### C-风格 For 循环 (待实现)
-
-传统 C-风格的 `for (initializer; condition; increment)` 循环仍在考虑中。
-
-```easyscript
-// for (let i = 0; i < 10; i = i + 1) {
-//     print(i);
-// };
-```
 
 ## 6. 函数 (Functions)
 
