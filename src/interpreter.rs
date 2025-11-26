@@ -782,7 +782,28 @@ impl Interpreter {
                                 Ok(Value::number(&mut self.heap, l / r))
                             }
                         }
-                        BinaryOperator::Mod => Ok(Value::number(&mut self.heap, l % r)), // Add Modulo operator
+                        BinaryOperator::Mod => Ok(Value::number(&mut self.heap, l % r)),
+                        BinaryOperator::BitAnd => Ok(Value::number(&mut self.heap, (*l as i64 & *r as i64) as f64)),
+                        BinaryOperator::BitOr => Ok(Value::number(&mut self.heap, (*l as i64 | *r as i64) as f64)),
+                        BinaryOperator::BitXor => Ok(Value::number(&mut self.heap, (*l as i64 ^ *r as i64) as f64)),
+                        BinaryOperator::ShL => {
+                            if *r < 0.0 {
+                                return Err(EasyScriptError::RuntimeError {
+                                    message: "Shift amount cannot be negative.".to_string(),
+                                    location: None,
+                                });
+                            }
+                            Ok(Value::number(&mut self.heap, (*l as i64).wrapping_shl(*r as u32) as f64))
+                        }
+                        BinaryOperator::ShR => {
+                            if *r < 0.0 {
+                                return Err(EasyScriptError::RuntimeError {
+                                    message: "Shift amount cannot be negative.".to_string(),
+                                    location: None,
+                                });
+                            }
+                            Ok(Value::number(&mut self.heap, (*l as i64).wrapping_shr(*r as u32) as f64))
+                        }
                         BinaryOperator::Lt => Ok(Value::boolean(&mut self.heap, l < r)),
                         BinaryOperator::Lte => Ok(Value::boolean(&mut self.heap, l <= r)),
                         BinaryOperator::Gt => Ok(Value::boolean(&mut self.heap, l > r)),
