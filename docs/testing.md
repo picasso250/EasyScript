@@ -40,17 +40,17 @@ TEST_SCOPE=builtin cargo test
 
 1.  在 `tests/e2e/` 目录下创建相应的子目录 (例如 `tests/e2e/new_feature/`)。
 2.  在该子目录中创建 `.es` 文件，编写 EasyScript 代码。
-3.  在 `.es` 文件中，使用 `// expect: <expected_value>` 和 `// expect_stdout: <expected_stdout>` 注释来定义测试的预期结果。
-    *   `// expect:` 用于检查脚本执行后的最终返回值。
-    *   `// expect_stdout:` 用于检查脚本在执行过程中打印到标准输出的内容。
-    *   一个测试文件必须至少包含一个 `// expect:` 或 `// expect_stdout:` 注释。
+3.  在 `.es` 文件中，编写 EasyScript 代码时，可以使用 `#` 进行单行注释。此外，您需要使用 `# expect: <expected_value>` 和 `# expect_stdout: <expected_stdout>` 作为特殊注释来定义测试的预期结果。
+    *   `# expect:` 用于检查脚本执行后的最终返回值。
+    *   `# expect_stdout:` 用于检查脚本在执行过程中打印到标准输出的内容。
+    *   一个测试文件必须至少包含一个 `# expect:` 或 `# expect_stdout:` 注释。
 
 **示例 `tests/e2e/core/example.es`:**
 
 ```easyscript
-let x = 10;
-print("Hello from test!");
-x + 5
-// expect: 15
-// expect_stdout: Hello from test!
+let x = 10; # 这是一个注释
+print("Hello from test!"); # 打印输出
+x + 5 # 最后一个表达式的值是脚本的返回值
+# expect: 15
+# expect_stdout: Hello from test!
 ```
