@@ -1,7 +1,7 @@
 // main.rs now acts as a consumer of the `easyscript_rs` library
 use easyscript_rs::{Interpreter, Lexer, Parser};
 use std::env; // Added
-use std::fs;   // Added
+use std::fs; // Added
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -25,7 +25,8 @@ fn main() {
     println!("\n--- 源代码 ---\n{}", source);
 
     // 1. 词法分析 (Lexer)
-    let tokens = match Lexer::new(&source).scan_tokens() { // Changed to &source
+    let tokens = match Lexer::new(&source).scan_tokens() {
+        // Changed to &source
         Ok(t) => t,
         Err(e) => {
             eprintln!("\n--- 词法错误 ---");

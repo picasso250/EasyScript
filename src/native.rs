@@ -24,12 +24,18 @@ pub fn init_builtin_methods_map(
     string_methods.insert("split", Rc::new(str_split_fn) as NativeFunction);
     string_methods.insert("to_upper", Rc::new(str_to_upper_fn) as NativeFunction);
     string_methods.insert("to_lower", Rc::new(str_to_lower_fn) as NativeFunction);
+    string_methods.insert("ends_with", Rc::new(str_ends_with_fn) as NativeFunction);
+    string_methods.insert("substring", Rc::new(str_substring_fn) as NativeFunction);
     methods.insert("string", string_methods);
 
     // --- List Methods ---
     let mut list_methods = HashMap::new();
     list_methods.insert("len", Rc::new(len_fn) as NativeFunction);
     list_methods.insert("push", Rc::new(list_push_fn) as NativeFunction);
+    list_methods.insert("pop", Rc::new(list_pop_fn) as NativeFunction);
+    list_methods.insert("remove", Rc::new(list_remove_fn) as NativeFunction);
+    list_methods.insert("insert", Rc::new(list_insert_fn) as NativeFunction);
+    list_methods.insert("join", Rc::new(list_join_fn) as NativeFunction);
     methods.insert("list", list_methods);
 
     // --- Map Methods ---
@@ -37,6 +43,7 @@ pub fn init_builtin_methods_map(
     map_methods.insert("keys", Rc::new(keys_fn) as NativeFunction);
     map_methods.insert("values", Rc::new(values_fn) as NativeFunction);
     map_methods.insert("len", Rc::new(len_fn) as NativeFunction);
+    map_methods.insert("has_key", Rc::new(map_has_key_fn) as NativeFunction);
     methods.insert("map", map_methods);
 
     methods
@@ -590,6 +597,125 @@ pub fn list_push_fn(
     }
 }
 
+// Native list pop method
+pub fn list_pop_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    mut args: Vec<Value>,
+) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "pop() expected 1 argument (self), but got {}",
+            args.len()
+        ));
+    }
+
+    let list_value = &mut args[0];
+
+    match list_value.0.deref_mut() {
+        Object::List(list) => {
+            if let Some(popped_element) = list.pop() {
+                Ok(popped_element)
+            } else {
+                Ok(Value::nil(heap)) // Return nil if list is empty
+            }
+        }
+        _other => Err(format!(
+            "pop() method expected a list as the receiver, but got type '{}'.",
+            list_value.type_of()
+        )),
+    }
+}
+
+// Native list remove method
+pub fn list_remove_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    mut args: Vec<Value>,
+) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "remove() expected 2 arguments (self, index), but got {}",
+            args.len()
+        ));
+    }
+
+    // 克隆 index_value 的值，解除对 args 的借用，避免冲突
+    let index_val_copy = args[1].clone(); 
+
+    // 现在可以安全地获取 list_value 的可变引用了
+    let list_value = &mut args[0];
+
+    match list_value.0.deref_mut() {
+        Object::List(list) => {
+            if let Some(idx_float) = index_val_copy.0.deref().as_number() { // 使用克隆的值
+                let index = (*idx_float as i64) as usize; // 更安全的转换
+                if index < list.len() {
+                    let removed_element = list.remove(index);
+                    Ok(removed_element)
+                } else {
+                    Err(format!("List index out of bounds: {}", index))
+                }
+            } else {
+                Err(format!(
+                    "remove() method expected a number for index, but got type '{}'.",
+                    index_val_copy.type_of() // 使用克隆的值
+                ))
+            }
+        }
+        _other => Err(format!(
+            "remove() method expected a list as the receiver, but got type '{}'.",
+            list_value.type_of()
+        )),
+    }
+}
+
+// Native list insert method
+pub fn list_insert_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    mut args: Vec<Value>, // Mark args as mutable to allow taking &mut args[0]
+) -> Result<Value, String> {
+    if args.len() != 3 {
+        return Err(format!(
+            "insert() expected 3 arguments (self, index, element), but got {}",
+            args.len()
+        ));
+    }
+
+    // Clone element_to_insert first to release borrow on args[2]
+    let element_to_insert = args[2].clone();
+
+    // Extract index value and convert to usize, releasing borrow on args[1]
+    let index_usize = match args[1].0.deref().as_number() {
+        Some(idx_float) => (*idx_float as i64) as usize, // Robust conversion
+        _ => {
+            return Err(format!(
+                "insert() method expected a number for index, but got type '{}'.",
+                args[1].type_of()
+            ));
+        }
+    };
+
+    // Now safely get mutable reference to args[0]
+    let list_value = &mut args[0];
+
+    match list_value.0.deref_mut() {
+        Object::List(list) => {
+            if index_usize <= list.len() { // index can be list.len() for appending
+                list.insert(index_usize, element_to_insert);
+                Ok(Value::nil(heap))
+            } else {
+                Err(format!("List insert index out of bounds: {} (list has {} elements).", index_usize, list.len()))
+            }
+        }
+        _other => Err(format!(
+            "insert() method expected a list as the receiver, but got type '{}'.",
+            list_value.type_of()
+        )),
+    }
+}
+
 // Native function to create a map from a list of key-value pairs
 pub fn make_map_fn(
     heap: &mut Heap,
@@ -681,4 +807,183 @@ pub fn gc_collect_fn(
     let collected_count = heap.collect(&roots);
 
     Ok(Value::number(heap, collected_count as f64))
+}
+
+// Native list join method
+pub fn list_join_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "join() expected 2 arguments (self, separator), but got {}",
+            args.len()
+        ));
+    }
+
+    let list_value = &args[0];
+    let separator_value = &args[1];
+
+    match list_value.0.deref() {
+        Object::List(list) => {
+            let separator = match separator_value.0.deref() {
+                Object::String(s) => s.clone(),
+                _other => {
+                    return Err(format!(
+                        "join() method expected a string for separator, but got type '{}'.",
+                        separator_value.type_of()
+                    ));
+                }
+            };
+
+            let parts: Vec<String> = list.iter().map(|item| format!("{}", item)).collect();
+            Ok(Value::string(heap, parts.join(&separator)))
+        }
+        _other => Err(format!(
+            "join() method expected a list as the receiver, but got type '{}'.",
+            list_value.type_of()
+        )),
+    }
+}
+
+// Native string ends_with method
+pub fn str_ends_with_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "ends_with() expected 2 arguments (self, suffix), but got {}",
+            args.len()
+        ));
+    }
+
+    let self_string = match &args[0].0.deref() {
+        Object::String(s) => s,
+        _other => {
+            return Err(format!(
+                "ends_with() method expected a string as the receiver, but got type '{}'.",
+                args[0].type_of()
+            ));
+        }
+    };
+
+    let suffix = match &args[1].0.deref() {
+        Object::String(s) => s,
+        _other => {
+            return Err(format!(
+                "ends_with() method expected a string as the suffix argument, but got type '{}'.",
+                args[1].type_of()
+            ));
+        }
+    };
+
+    Ok(Value::boolean(heap, self_string.ends_with(suffix)))
+}
+
+// Native string substring method
+pub fn str_substring_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
+    if args.len() < 2 || args.len() > 3 {
+        return Err(format!(
+            "substring() expected 2 or 3 arguments (self, start, end), but got {}",
+            args.len()
+        ));
+    }
+
+    let self_string = match &args[0].0.deref() {
+        Object::String(s) => s,
+        _other => {
+            return Err(format!(
+                "substring() method expected a string as the receiver, but got type '{}'.",
+                args[0].type_of()
+            ));
+        }
+    };
+
+    let start_index = match &args[1].0.deref().as_number() {
+        Some(n) => (**n as i64) as usize,
+        _ => {
+            return Err(format!(
+                "substring() method expected a number for start index, but got type '{}'.",
+                args[1].type_of()
+            ));
+        }
+    };
+
+    let end_index = if args.len() == 3 {
+        match &args[2].0.deref().as_number() {
+            Some(n) => Some((**n as i64) as usize),
+            _ => {
+                return Err(format!(
+                    "substring() method expected a number for end index, but got type '{}'.",
+                    args[2].type_of()
+                ));
+            }
+        }
+    } else {
+        None
+    };
+
+    let chars: Vec<char> = self_string.chars().collect();
+    let len = chars.len();
+
+    if start_index > len {
+        return Ok(Value::string(heap, "".to_string()));
+    }
+
+    let actual_end_index = end_index.unwrap_or(len);
+
+    if start_index >= actual_end_index {
+        return Ok(Value::string(heap, "".to_string()));
+    }
+
+    let sub: String = chars[start_index..std::cmp::min(actual_end_index, len)]
+        .iter()
+        .collect();
+
+    Ok(Value::string(heap, sub))
+}
+
+// Native map has_key method
+pub fn map_has_key_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
+    if args.len() != 2 {
+        return Err(format!(
+            "has_key() expected 2 arguments (self, key), but got {}",
+            args.len()
+        ));
+    }
+
+    let map_value = &args[0];
+    let key_to_check = &args[1];
+
+    match map_value.0.deref() {
+        Object::Map(map) => {
+            // Map keys must be primitive types (String, Number, Boolean)
+            match key_to_check.type_of() {
+                "string" | "number" | "boolean" => {
+                    Ok(Value::boolean(heap, map.contains_key(key_to_check)))
+                },
+                _ => {
+                    return Err(format!(
+                        "Map keys must be primitive types (String, Number, Boolean) for has_key(). Got: '{}'.",
+                        key_to_check.type_of()
+                    ))
+                }
+            }
+        }
+        _other => Err(format!(
+            "has_key() method expected a map as the receiver, but got type '{}'.",
+            map_value.type_of()
+        )),
+    }
 }

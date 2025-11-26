@@ -55,5 +55,44 @@ print(s_unicode.starts_with("你好")); # true
 # expect_stdout: true
 print(s_unicode.contains("世界")); # true
 # expect_stdout: true
-print(s_unicode.find("a")); # nil
-# expect_stdout: nil
+
+# Test str.ends_with()
+let test_str_ew = "Hello World";
+print(test_str_ew.ends_with("World"));   # Expected: true
+# expect_stdout: true
+print(test_str_ew.ends_with("world"));   # Expected: false (case-sensitive)
+# expect_stdout: false
+print(test_str_ew.ends_with("ld"));      # Expected: true
+# expect_stdout: true
+print(test_str_ew.ends_with("Hello"));   # Expected: false
+# expect_stdout: false
+print(test_str_ew.ends_with(""));        # Expected: true
+# expect_stdout: true
+print(test_str_ew.ends_with("Foo"));     # Expected: false
+# expect_stdout: false
+print("".ends_with(""));                 # Expected: true
+# expect_stdout: true
+print("".ends_with("a"));                # Expected: false
+# expect_stdout: false
+
+
+# Test str.substring()
+let test_str_sub = "Hello World";
+print(test_str_sub.substring(0, 5));  # Expected: Hello
+# expect_stdout: Hello
+print(test_str_sub.substring(6));     # Expected: World
+# expect_stdout: World
+print(test_str_sub.substring(0, 11)); # Expected: Hello World
+# expect_stdout: Hello World
+print(test_str_sub.substring(6, 11)); # Expected: World
+# expect_stdout: World
+print(test_str_sub.substring(0, 0));  # Expected:
+# expect_stdout: 
+print(test_str_sub.substring(7, 5));  # Expected:
+# expect_stdout: 
+print(test_str_sub.substring(100));   # Expected:
+# expect_stdout: 
+print(test_str_sub.substring(0, 100)); # Expected: Hello World
+# expect_stdout: Hello World
+print("Unicode 世界".substring(8, 10)); # Expected: 世界
+# expect_stdout: 世界

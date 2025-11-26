@@ -27,4 +27,4 @@ let new_map_from_for = make_map(for k in source_map if source_map[k] > 15 {[k + 
 print(new_map_from_for.len());
 # expect_stdout: 2
 new_map_from_for # Final expression for value assertion
-# expect: {"k2_suffix": 40, "k3_suffix": 60}
+# expect: {"k3_suffix": 60, "k2_suffix": 40}

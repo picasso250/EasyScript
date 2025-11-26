@@ -15,3 +15,19 @@ print(len({"x": 1})); # Expected: 1
 # expect_stdout: 0
 # expect_stdout: 3
 # expect_stdout: 1
+
+# Test map.has_key()
+let test_map_hk = {"name": "Alice", "age": 30, true: "yes", 1: "one"};
+print(test_map_hk.has_key("name"));     # Expected: true
+print(test_map_hk.has_key("city"));     # Expected: false
+print(test_map_hk.has_key(true));       # Expected: true
+print(test_map_hk.has_key(1));          # Expected: true
+print(test_map_hk.has_key(false));      # Expected: false
+print({}.has_key("empty"));             # Expected: false
+
+# expect_stdout: true
+# expect_stdout: false
+# expect_stdout: true
+# expect_stdout: true
+# expect_stdout: false
+# expect_stdout: false
