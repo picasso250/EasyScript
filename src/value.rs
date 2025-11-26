@@ -482,7 +482,7 @@ impl Heap {
 
     /// Triggers a garbage collection cycle. (Stop-the-World Mark-and-Sweep)
     /// `roots` are the starting points for tracing reachable objects.
-    pub fn collect(&mut self, roots: &[Value]) {
+    pub fn collect(&mut self, roots: &[Value]) -> usize {
         eprintln!(
             "[GC] Starting collection phase. {} objects on heap.",
             self.objects.len()
@@ -495,8 +495,8 @@ impl Heap {
             root.trace(self); // Call the GcTrace for Value
         }
 
-        // 2. Sweep Phase:
-        self.sweep();
+        // 2. Sweep Phase and return collected count
+        self.sweep()
     }
 
     /// Resets the mark bit for all objects on the heap to `false`.
@@ -509,7 +509,7 @@ impl Heap {
     }
 
     /// Sweeps through the heap, freeing unmarked objects.
-    fn sweep(&mut self) {
+    fn sweep(&mut self) -> usize {
         let before_count = self.objects.len();
 
         self.objects.retain(|&ptr| {
@@ -536,14 +536,15 @@ impl Heap {
             }
         });
 
-        let after_count = self.objects.len();
-        if before_count > after_count {
+        let collected_count = before_count - self.objects.len();
+        if collected_count > 0 {
             eprintln!(
                 "[GC] Swept and freed {} objects. {} remaining.",
-                before_count - after_count,
-                after_count
+                collected_count,
+                self.objects.len()
             );
         }
+        collected_count
     }
 
     /// Helper to get layout for Object variants (needed for deallocation)

@@ -603,8 +603,6 @@ pub fn gc_collect_fn(
         ));
     }
 
-    eprintln!("[GC] Manual collection triggered.");
-
     let mut roots = Vec::new();
     let mut current_env = Some(Rc::clone(env));
     while let Some(env_ref) = current_env {
@@ -619,7 +617,7 @@ pub fn gc_collect_fn(
     // Although for gc_collect() it's empty, it's good practice for other potential GC-aware functions.
     roots.extend_from_slice(&args);
 
-    heap.collect(&roots);
+    let collected_count = heap.collect(&roots);
 
-    Ok(Value::nil(heap))
+    Ok(Value::number(heap, collected_count as f64))
 }

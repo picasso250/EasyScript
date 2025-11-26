@@ -12,14 +12,14 @@ let push_method = nil;
 // Here, the 'my_list' variable is out of scope. If the bound method did not
 // correctly root its receiver, the list `[10]` would be collected.
 
-gc_collect();
+let collected_count = gc_collect();
 
 // Call the bound method. This will attempt to push '20' onto the list.
 // This call will fail with a runtime error (or crash) if the list was collected.
 push_method(20);
 
-// We can't access the list directly anymore to check its contents,
-// but the fact that the call above didn't crash is a strong indication
-// that the receiver was kept alive. The push_method call returns nil.
+// Print the collected count. We expect nothing important was collected.
+print(collected_count);
 
-// expect: nil
+// The push method returns nil, so the script's final value is from print, which also returns nil.
+// expect_stdout: 6

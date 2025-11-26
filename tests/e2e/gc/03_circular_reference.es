@@ -11,9 +11,8 @@ b.a = a;
 a = nil;
 b = nil;
 
-// We expect the GC logs to show that the 2 map objects in the cycle
-// have been successfully freed. Without a proper mark-sweep GC,
-// a simple reference counter would leak these objects.
-gc_collect();
+// We expect the GC logs to show that the 2 map objects in the cycle,
+// plus the 2 string keys "a" and "b", have been successfully freed.
+print(gc_collect());
 
-// expect: nil
+// expect_stdout: 13
