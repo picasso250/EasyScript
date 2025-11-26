@@ -1,3 +1,4 @@
+use crate::environment::EnvironmentRef;
 use crate::value::{Heap, NativeFunction, Object, Value};
 use std::collections::HashMap;
 use std::io::{self, Write};
@@ -42,7 +43,11 @@ pub fn init_builtin_methods_map(
 }
 
 // Native string starts_with method
-pub fn str_starts_with_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_starts_with_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 2 {
         return Err(format!(
             "starts_with() expected 2 arguments (self, prefix), but got {}",
@@ -76,7 +81,11 @@ pub fn str_starts_with_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, St
 }
 
 // Native string contains method
-pub fn str_contains_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_contains_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 2 {
         return Err(format!(
             "contains() expected 2 arguments (self, substring), but got {}",
@@ -109,7 +118,11 @@ pub fn str_contains_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, Strin
     Ok(Value::boolean(heap, self_string.contains(substring)))
 }
 // Native string find method
-pub fn str_find_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_find_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 2 {
         return Err(format!(
             "find() expected 2 arguments (self, substring), but got {}",
@@ -150,7 +163,11 @@ pub fn str_find_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native string replace method
-pub fn str_replace_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_replace_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 3 {
         return Err(format!(
             "replace() expected 3 arguments (self, old, new), but got {}",
@@ -198,7 +215,11 @@ pub fn str_replace_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String
 }
 
 // Native string split method
-pub fn str_split_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_split_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 2 {
         return Err(format!(
             "split() expected 2 arguments (self, delimiter), but got {}",
@@ -245,7 +266,11 @@ pub fn str_split_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> 
 }
 
 // Native string to_upper method
-pub fn str_to_upper_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_to_upper_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!(
             "to_upper() expected 1 argument (self), but got {}",
@@ -263,7 +288,11 @@ pub fn str_to_upper_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, Strin
 }
 
 // Native string to_lower method
-pub fn str_to_lower_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_to_lower_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!(
             "to_lower() expected 1 argument (self), but got {}",
@@ -290,7 +319,7 @@ pub fn str_to_lower_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, Strin
 // }
 
 // Native print function
-pub fn print_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn print_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     if args.is_empty() {
         writeln!(io::stdout()).map_err(|e| e.to_string())?;
     } else {
@@ -301,7 +330,7 @@ pub fn print_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native len method (polymorphic, but called as a method)
-pub fn len_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn len_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     // Expect `self` (the string/list/map) as the first argument, and no other arguments.
     if args.len() != 1 {
         return Err(format!(
@@ -326,7 +355,11 @@ pub fn len_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native string trim method
-pub fn str_trim_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_trim_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     // Expect `self` (the string) as the first argument, and no other arguments.
     if args.len() != 1 {
         return Err(format!(
@@ -345,7 +378,7 @@ pub fn str_trim_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native type function
-pub fn type_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn type_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!(
             "type() expected 1 argument, but got {}",
@@ -358,7 +391,7 @@ pub fn type_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native str conversion function
-pub fn str_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn str_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!("str() expected 1 argument, but got {}", args.len()));
     }
@@ -379,7 +412,7 @@ pub fn str_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 /// - Boolean `true` becomes 1.0, `false` becomes 0.0.
 /// - `Nil` becomes 0.0.
 /// - For any other type, returns `Value::Nil`.
-pub fn num_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn num_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!("num() expected 1 argument, but got {}", args.len()));
     }
@@ -429,7 +462,7 @@ pub fn num_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native input function
-pub fn input_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn input_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     if args.len() > 1 {
         return Err(format!(
             "input() expected 0 or 1 argument, but got {}",
@@ -455,7 +488,7 @@ pub fn input_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native bool conversion function
-pub fn bool_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn bool_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!(
             "bool() expected 1 argument, but got {}",
@@ -467,7 +500,7 @@ pub fn bool_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native repr conversion function
-pub fn repr_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn repr_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!(
             "repr() expected 1 argument, but got {}",
@@ -480,7 +513,7 @@ pub fn repr_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native keys method
-pub fn keys_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn keys_fn(heap: &mut Heap, _env: &EnvironmentRef, args: Vec<Value>) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!(
             "keys() expected 1 argument (self), but got {}.",
@@ -501,7 +534,11 @@ pub fn keys_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native values method
-pub fn values_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
+pub fn values_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 1 {
         return Err(format!(
             "values() expected 1 argument (self), but got {}.",
@@ -522,7 +559,11 @@ pub fn values_fn(heap: &mut Heap, args: Vec<Value>) -> Result<Value, String> {
 }
 
 // Native list push method
-pub fn list_push_fn(heap: &mut Heap, mut args: Vec<Value>) -> Result<Value, String> {
+pub fn list_push_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    mut args: Vec<Value>,
+) -> Result<Value, String> {
     if args.len() != 2 {
         return Err(format!(
             "push() expected 2 arguments (self, element), but got {}",
@@ -547,4 +588,38 @@ pub fn list_push_fn(heap: &mut Heap, mut args: Vec<Value>) -> Result<Value, Stri
             list_value.type_of()
         )),
     }
+}
+
+// Native GC collection function
+pub fn gc_collect_fn(
+    heap: &mut Heap,
+    env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
+    if !args.is_empty() {
+        return Err(format!(
+            "gc_collect() expected 0 arguments, but got {}",
+            args.len()
+        ));
+    }
+
+    eprintln!("[GC] Manual collection triggered.");
+
+    let mut roots = Vec::new();
+    let mut current_env = Some(Rc::clone(env));
+    while let Some(env_ref) = current_env {
+        let env_borrow = env_ref.borrow();
+        for value in env_borrow.values.values() {
+            roots.push(value.clone());
+        }
+        current_env = env_borrow.parent.as_ref().map(Rc::clone);
+    }
+
+    // Also add the arguments passed to this function as roots.
+    // Although for gc_collect() it's empty, it's good practice for other potential GC-aware functions.
+    roots.extend_from_slice(&args);
+
+    heap.collect(&roots);
+
+    Ok(Value::nil(heap))
 }

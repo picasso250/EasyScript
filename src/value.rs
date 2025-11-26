@@ -15,7 +15,8 @@ use crate::environment::EnvironmentRef; // For FunctionObjectInner
 
 // --- Type Aliases for Function Objects ---
 /// Defines the signature for a native Rust function that can be called from EasyScript.
-pub type NativeFunction = Rc<dyn for<'a> Fn(&'a mut Heap, Vec<Value>) -> Result<Value, String>>;
+pub type NativeFunction =
+    Rc<dyn for<'a> Fn(&'a mut Heap, &EnvironmentRef, Vec<Value>) -> Result<Value, String>>;
 
 /// Represents a user-defined or native function in EasyScript.
 #[derive(Clone)]
@@ -259,11 +260,16 @@ impl GcTrace for Object {
                 }
             }
             Object::Function(func_inner) => {
-                if let FunctionObjectInner::User { defined_env: _, .. } = func_inner {
-                    // This comment needs to be addressed when Environment implements GcTrace
-                    // For now, let's keep the logic as it is, assuming environment will be traced separately or is a root.
-                    // The EnvironmentRef itself (Rc) is not GC'd, but the Environment it points to can contain GC'd values.
-                    // This will be handled in Environment's GcTrace implementation.
+                if let FunctionObjectInner::User { defined_env, .. } = func_inner {
+                    // A closure roots all values in its captured environment. We must trace them.
+                    let mut current_env = Some(Rc::clone(defined_env));
+                    while let Some(env_ref) = current_env {
+                        let env_borrow = env_ref.borrow();
+                        for value in env_borrow.values.values() {
+                            value.trace(heap);
+                        }
+                        current_env = env_borrow.parent.as_ref().map(Rc::clone);
+                    }
                 }
             }
             Object::BoundMethod(bound_method_inner) => {
@@ -477,6 +483,10 @@ impl Heap {
     /// Triggers a garbage collection cycle. (Stop-the-World Mark-and-Sweep)
     /// `roots` are the starting points for tracing reachable objects.
     pub fn collect(&mut self, roots: &[Value]) {
+        eprintln!(
+            "[GC] Starting collection phase. {} objects on heap.",
+            self.objects.len()
+        );
         // 1. Mark Phase:
         //    Reset all mark bits to false for the current sweep cycle.
         self.unmark_all();
@@ -500,6 +510,8 @@ impl Heap {
 
     /// Sweeps through the heap, freeing unmarked objects.
     fn sweep(&mut self) {
+        let before_count = self.objects.len();
+
         self.objects.retain(|&ptr| {
             unsafe {
                 // Get a reference to the header
@@ -523,6 +535,15 @@ impl Heap {
                 }
             }
         });
+
+        let after_count = self.objects.len();
+        if before_count > after_count {
+            eprintln!(
+                "[GC] Swept and freed {} objects. {} remaining.",
+                before_count - after_count,
+                after_count
+            );
+        }
     }
 
     /// Helper to get layout for Object variants (needed for deallocation)

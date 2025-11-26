@@ -84,6 +84,13 @@ impl Interpreter {
                     FunctionObjectInner::Native(Rc::new(crate::native::repr_fn)),
                 ),
             );
+            global_env.assign(
+                "gc_collect",
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::gc_collect_fn)),
+                ),
+            );
         } // The mutable borrow of global_env is dropped here.
 
         interpreter
@@ -597,7 +604,7 @@ impl Interpreter {
                         }
                         crate::value::FunctionObjectInner::Native(native_fn) => {
                             // 调用原生函数
-                            native_fn(&mut self.heap, arg_vals).map_err(|e| {
+                            native_fn(&mut self.heap, &self.environment, arg_vals).map_err(|e| {
                                 EasyScriptError::RuntimeError {
                                     message: e,
                                     location: None,
@@ -619,12 +626,11 @@ impl Interpreter {
                                 let mut full_args = vec![receiver];
                                 full_args.extend(arg_vals);
 
-                                native_method_fn(&mut self.heap, full_args).map_err(|e| {
-                                    EasyScriptError::RuntimeError {
+                                native_method_fn(&mut self.heap, &self.environment, full_args)
+                                    .map_err(|e| EasyScriptError::RuntimeError {
                                         message: e,
                                         location: None,
-                                    }
-                                })
+                                    })
                             } else {
                                 // This should ideally not happen if Accessor correctly returns BoundMethod
                                 Err(EasyScriptError::RuntimeError {

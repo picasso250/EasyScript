@@ -11,7 +11,7 @@ pub type EnvironmentRef = Rc<RefCell<Environment>>;
 // The Environment struct now holds an optional parent pointer.
 #[derive(Debug, PartialEq)]
 pub struct Environment {
-    parent: Option<EnvironmentRef>,
+    pub parent: Option<EnvironmentRef>,
     pub values: HashMap<String, Value>, // Made public for direct mutation after finding environment
 }
 

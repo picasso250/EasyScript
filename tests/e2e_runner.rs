@@ -69,6 +69,7 @@ fn run_e2e_tests() {
     let glob_pattern = match test_scope.as_str() {
         "core" => "tests/e2e/core/**/*.es",
         "builtin" => "tests/e2e/builtin/**/*.es",
+        "gc" => "tests/e2e/gc/**/*.es",
         _ => "tests/e2e/**/*.es", // Default to all tests
     };
 
