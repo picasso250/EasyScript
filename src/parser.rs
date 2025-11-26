@@ -65,23 +65,45 @@ impl Parser {
     fn for_expression(&mut self) -> Result<Expression, EasyScriptError> {
         self.consume(&Token::KeywordFor, "Expect 'for' keyword.")?; // Consume 'for'
 
-        let identifier = self.consume_identifier("Expect loop variable name after 'for'.")?;
+        // Check if it's a 'for-in' loop by looking for an Identifier followed by 'in'
+        // Need to be careful with `self.peek()` and `self.tokens.get(self.current + 1)`
+        let is_for_in = if let Some(current_token) = self.tokens.get(self.current) {
+            if let Token::Identifier(_) = current_token {
+                if let Some(next_token) = self.tokens.get(self.current + 1) {
+                    matches!(next_token, Token::KeywordIn)
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        };
 
-        self.consume(
-            &Token::KeywordIn,
-            "Expect 'in' keyword after loop variable.",
-        )?;
 
-        let iterable = Box::new(self.expression()?); // Parse the iterable expression
+        if is_for_in {
+            // It's a for-in loop (e.g., `for x in y`)
+            let identifier = self.consume_identifier("Expect loop variable name after 'for'.")?;
+            self.consume(
+                &Token::KeywordIn,
+                "Expect 'in' keyword after loop variable.",
+            )?;
+            let iterable = Box::new(self.expression()?);
+            self.consume(&Token::LeftBrace, "Expect '{' before for loop body.")?;
+            let body = self.block()?;
+            return Ok(Expression::ForIn {
+                identifier,
+                iterable,
+                body,
+            });
+        }
 
+        // If not a 'for-in' loop, it must be a 'for <condition> { ... }' loop
+        let condition = Box::new(self.expression()?);
         self.consume(&Token::LeftBrace, "Expect '{' before for loop body.")?;
-        let body = self.block()?; // Parse the loop body as a block
-
-        Ok(Expression::For {
-            identifier,
-            iterable,
-            body,
-        })
+        let body = self.block()?;
+        Ok(Expression::ForCondition { condition, body })
     }
 
     // This function assumes the "let" keyword has NOT been consumed by its caller.

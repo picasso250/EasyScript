@@ -186,9 +186,21 @@ print(status); // nil
 
 ### For 表达式 (For Expression)
 
-EasyScript 的 `for` 循环是迭代器驱动的。
+EasyScript 支持两种 `for` 循环。
 
-#### For 循环列表/映射
+#### `while` 风格循环
+这是一种条件循环，其行为类似其他语言中的 `while` 循环。只要条件表达式为真 (`truthy`)，循环就会持续执行。
+
+```easyscript
+let i = 0;
+for i < 5 {
+    print(i);
+    i = i + 1;
+}
+```
+
+#### `for-in` 迭代循环
+用于遍历列表或映射的键。
 
 ```easyscript
 let myNumbers = [1, 2, 3];
@@ -197,14 +209,14 @@ for (num in myNumbers) {
 };
 
 let mySettings = {"theme": "dark", "fontSize": 14};
-for (key, value in mySettings) {
-    print(key + ": " + value);
+for (key in mySettings) { // 注意：for-in 遍历 map 时，得到的是 key
+    print(key + ": " + mySettings[key]);
 };
 ```
 
 #### C-风格 For 循环 (待实现)
 
-传统 C-风格的 `for` 循环仍在考虑中。
+传统 C-风格的 `for (initializer; condition; increment)` 循环仍在考虑中。
 
 ```easyscript
 // for (let i = 0; i < 10; i = i + 1) {

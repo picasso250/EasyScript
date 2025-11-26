@@ -19,6 +19,11 @@
     *   **实现**：可能是一个 `Vec<Option<GcObjectHeader>>` 或自定义的内存池。`GcObjectHeader` 包含对象类型信息、标记位等。
     *   **对象存储**：GC 堆将存储 `Object` 枚举的实例，因为所有 EasyScript 运行时数据都将是 `Object` 的一个变体。
 
+*   **3.1.1 开发者调试选项**
+    *   **`DEBUG_GC` 环境变量**：
+        *   当 `DEBUG_GC` 被设置为 `1` 时，GC 相关的内存分配和回收操作将在标准错误输出 (`eprintln!`) 中打印详细日志。这对于跟踪对象的生命周期和调试 GC 行为非常有用。
+
+
 *   **3.2 `Gc<T>` 句柄 (Gc Handle)**
     *   **目的**：统一作为指向 GC 堆上 `Object` 实例的安全引用。
     *   **实现**：`Gc<T>` 将主要用作 `Gc<Object>`。它将是一个包装了 GC 堆索引或裸指针的智能指针。它需要实现 `Copy`, `Clone` 等，以便在 EasyScript 代码中方便传递。

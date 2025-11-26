@@ -511,7 +511,7 @@ impl Interpreter {
                 }
             }
 
-            Expression::For {
+            Expression::ForIn {
                 identifier,
                 iterable,
                 body,
@@ -554,6 +554,25 @@ impl Interpreter {
                     }
                 }
                 Ok(Value::list(&mut self.heap, collected_values)) // Return the collected list
+            }
+
+            Expression::ForCondition { condition, body } => {
+                let mut collected_values = Vec::new(); // Collect results here
+
+                loop {
+                    // Evaluate condition in the current scope
+                    let condition_val = self.evaluate(condition)?;
+
+                    if condition_val.is_truthy() {
+                        // Create a new scope for the body of each iteration
+                        let loop_env = Environment::new_enclosed(&self.environment);
+                        let iteration_result = self.execute_block(body, &loop_env)?;
+                        collected_values.push(iteration_result);
+                    } else {
+                        break; // Condition is false, exit loop
+                    }
+                }
+                Ok(Value::list(&mut self.heap, collected_values)) // Return the collected list of results
             }
 
             Expression::Unary { op, expr } => {

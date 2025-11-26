@@ -56,8 +56,14 @@ pub enum Expression {
         else_branch: Option<Box<Expression>>,
     },
 
-    // For Expression (列表生成/map)
-    For {
+    // New: for <condition> { ... } loop
+    ForCondition {
+        condition: Box<Expression>,
+        body: Block,
+    },
+
+    // Renamed: for <identifier> in <iterable> { ... } loop
+    ForIn {
         identifier: String,        // for x
         iterable: Box<Expression>, // in collection
         body: Block,

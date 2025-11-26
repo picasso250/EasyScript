@@ -421,7 +421,9 @@ impl Heap {
             Object::Function(_) => "function",
             Object::BoundMethod(_) => "method",
         };
-        eprintln!("[GC ALLOC] type={}, content={:?}", type_str, payload);
+        if std::env::var("DEBUG_GC").unwrap_or_default() == "1" {
+            eprintln!("[GC ALLOC] type={}, content={:?}", type_str, payload);
+        }
 
         let obj_type: GcObjectType = payload.clone().into(); // Get GcObjectType from payload (needs Clone for payload)
         let payload_layout = Layout::new::<Object>();
