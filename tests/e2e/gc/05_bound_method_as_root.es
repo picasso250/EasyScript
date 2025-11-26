@@ -22,4 +22,4 @@ push_method(20);
 print(collected_count);
 
 // The push method returns nil, so the script's final value is from print, which also returns nil.
-// expect_stdout: 6
+// expect_stdout: 5

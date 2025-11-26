@@ -15,4 +15,4 @@ b = nil;
 // plus the 2 string keys "a" and "b", have been successfully freed.
 print(gc_collect());
 
-// expect_stdout: 13
+// expect_stdout: 12

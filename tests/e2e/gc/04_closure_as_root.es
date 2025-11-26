@@ -25,4 +25,4 @@ print(collected_count);
 
 // The test runner can handle multiple stdout expectations.
 // expect_stdout: true
-// expect_stdout: 6
+// expect_stdout: 5

@@ -7,4 +7,4 @@ a = nil; // The map object is now unreachable.
 print(gc_collect());
 
 // The real test is observing the stdout.
-// expect_stdout: 7
+// expect_stdout: 6

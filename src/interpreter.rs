@@ -118,19 +118,30 @@ impl Interpreter {
         let previous_env = Rc::clone(&self.environment);
         self.environment = Rc::clone(env);
 
-        let mut last_value = Value::nil(&mut self.heap);
+        // Introduce a special variable in the current environment to store the result of expressions.
+        // This makes the result a root for the GC.
+        let result_var_name = "__res";
+        env.borrow_mut()
+            .assign(result_var_name, Value::nil(&mut self.heap)); // Initialize with nil
+
         for (index, (expr, terminated_by_semicolon)) in block.expressions.iter().enumerate() {
-            last_value = self.evaluate(expr)?;
+            let expr_value = self.evaluate(expr)?;
+            // Update the __res variable in the environment.
+            env.borrow_mut().assign(result_var_name, expr_value);
+
             // Only set to nil if terminated by semicolon AND it's not the last expression.
-            // The last expression's value should always be returned regardless of semicolon.
             if *terminated_by_semicolon && index < block.expressions.len() - 1 {
-                last_value = Value::nil(&mut self.heap);
+                env.borrow_mut()
+                    .assign(result_var_name, Value::nil(&mut self.heap));
             }
         }
 
         // Restore the previous environment.
         self.environment = previous_env;
-        Ok(last_value)
+
+        // Return the final value stored in the __res variable.
+        // It's guaranteed to exist since we initialized it.
+        Ok(env.borrow().get(result_var_name).unwrap().clone())
     }
 
     /// The core evaluation logic that dispatches based on expression type.

@@ -411,6 +411,18 @@ impl Heap {
     /// Allocates a new Object on the GC heap.
     /// This is `unsafe` because it involves raw memory allocation and pointer casting.
     pub unsafe fn allocate(&mut self, payload: Object) -> GcRef {
+        let type_str = match &payload {
+            Object::Nil => "nil",
+            Object::Boolean(_) => "boolean",
+            Object::Number(_) => "number",
+            Object::String(_) => "string",
+            Object::List(_) => "list",
+            Object::Map(_) => "map",
+            Object::Function(_) => "function",
+            Object::BoundMethod(_) => "method",
+        };
+        eprintln!("[GC ALLOC] type={}, content={:?}", type_str, payload);
+
         let obj_type: GcObjectType = payload.clone().into(); // Get GcObjectType from payload (needs Clone for payload)
         let payload_layout = Layout::new::<Object>();
 
