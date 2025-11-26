@@ -1,3 +1,3 @@
-// Test string concatenation
+# Test string concatenation
 "hello" + ", " + "world!"
-// expect: hello, world!
+# expect: hello, world!

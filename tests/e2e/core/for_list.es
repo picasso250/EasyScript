@@ -4,4 +4,4 @@ for x in my_list {
     sum = sum + x;
 }
 sum
-// expect: 6
+# expect: 6

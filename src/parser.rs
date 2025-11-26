@@ -81,7 +81,6 @@ impl Parser {
             false
         };
 
-
         if is_for_in {
             // It's a for-in loop (e.g., `for x in y`)
             let identifier = self.consume_identifier("Expect loop variable name after 'for'.")?;

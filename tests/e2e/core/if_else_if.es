@@ -1,4 +1,4 @@
-// Test chained if-else if-else statement
+# Test chained if-else if-else statement
 
 let a = 10;
 let result = if a == 1 {
@@ -10,4 +10,4 @@ let result = if a == 1 {
 };
 result
 
-// expect: greater than five
+# expect: greater than five

@@ -1,4 +1,4 @@
-// Minimal test for else if chain
+# Minimal test for else if chain
 let a = 1;
 if a == 0 {
     "zero"
@@ -7,4 +7,4 @@ if a == 0 {
 } else {
     "other"
 }
-// expect: one
+# expect: one

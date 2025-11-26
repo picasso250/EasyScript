@@ -5,5 +5,5 @@ let fact = fun (n) {
         n * fact(n - 1)
     }
 };
-fact(5) // 5 * 4 * 3 * 2 * 1 = 120
-// expect: 120
+fact(5) # 5 * 4 * 3 * 2 * 1 = 120
+# expect: 120

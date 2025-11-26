@@ -9,8 +9,8 @@
 EasyScript 支持单行注释：
 
 ```easyscript
-// 这是一个单行注释
-let x = 10; // 这是行尾注释
+# 这是一个单行注释
+let x = 10; # 这是行尾注释
 ```
 
 ### 标识符 (Identifiers)

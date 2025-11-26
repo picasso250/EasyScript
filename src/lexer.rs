@@ -273,23 +273,13 @@ impl<'a> Lexer<'a> {
                 };
                 self.add_token(token);
             }
-            '/' => {
-                if self.match_char('/') {
-                    // 处理行注释：跳过直到行尾或文件结束
-                    while self.peek().map_or(false, |c| c != '\n') {
-                        self.advance();
-                    }
-                } else if self.match_char('*') {
-                    // TODO: 实现块注释 /* ... */
-                    return self.error(
-                        "Block comments are not fully implemented yet.",
-                        token_start_line,
-                        token_start_column,
-                    );
-                } else {
-                    self.add_token(Token::Slash);
+            '#' => {
+                // 处理行注释：跳过直到行尾或文件结束
+                while self.peek().map_or(false, |c| c != '\n') {
+                    self.advance();
                 }
             }
+            '/' => self.add_token(Token::Slash),
 
             // 忽略空白字符
             ' ' | '\r' | '\t' => {}
@@ -433,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_comments() {
-        let tokens = setup_lexer("let a = 1; // This is a comment\nlet b = 2;");
+        let tokens = setup_lexer("let a = 1; # This is a comment\nlet b = 2;");
         assert_eq!(
             tokens,
             vec![

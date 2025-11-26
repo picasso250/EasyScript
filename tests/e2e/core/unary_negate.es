@@ -1,4 +1,4 @@
-// Test unary negation operator
+# Test unary negation operator
 
 -5
-// expect: -5
+# expect: -5

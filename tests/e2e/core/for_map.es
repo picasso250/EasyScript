@@ -9,4 +9,4 @@ for k in my_map {
     };
 }
 sum_values
-// expect: 30
+# expect: 30

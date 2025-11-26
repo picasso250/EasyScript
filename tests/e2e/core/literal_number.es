@@ -1,3 +1,3 @@
-// The last expression's value is the result.
+# The last expression's value is the result.
 123
-// expect: 123
+# expect: 123
