@@ -1,26 +1,28 @@
 (* Non-terminals (非终结符): 核心结构 *)
-Program          ::= { Expression ";" } [ Expression ] .
-(* 
+Program          ::= Block .
+(*
  * Program 语义：
- * 1. 顶层结构是隐式的表达式块，即一个 Expression 序列。
- * 2. 程序执行完毕后，返回最后一个 Expression 的值（如果存在），否则返回 nil。
+ * 1. 顶层结构是一个隐式的表达式块 (Block)。
+ * 2. 程序执行完毕后，返回 Block 中最后一个 Expression 的值，否则返回 nil。
  *)
 
 
-(* 顶级表达式：包含所有可能作为 BlockExpression 内部元素的表达式 *)
+(* 顶级表达式：包含所有可能作为 Block 内部元素的表达式 *)
 Expression       ::= IfExpression
                    | ForExpression
                    | FunctionDefinition
-                   | LetDeclaration        (* 新增 *)
-                   | AssignmentExpression  (* 保持，但语义有变 *)
-                   | TermExpression .
+                   | LetDeclaration
+                   | AssignmentExpression
+                   | LogicalOrAndExpression . (* 最高优先级现在由 LogicalOrAndExpression 开始 *)
+
 
 (*
  * AssignmentExpression (重新赋值表达式)
  * 重新赋值操作是一个 Expression，带有副作用 (修改 LValue)，且返回 'nil'。
  * LValue 中的 Identifier 必须是已存在的变量，否则产生运行时错误。
  *)
-AssignmentExpression ::= LValue "=" TermExpression .
+AssignmentExpression ::= LValue "=" LogicalOrAndExpression . (* RHS 可以是任意表达式 *)
+
 
 LetDeclaration   ::= "let" Identifier "=" Expression .
 (*
@@ -31,77 +33,107 @@ LetDeclaration   ::= "let" Identifier "=" Expression .
  *)
 
 (* 变量、列表元素或字典元素，可作为赋值左侧的目标 *)
-LValue           ::= Identifier { Accessor } . (* 修改：使用 Accessor 规则 *)
+LValue           ::= Identifier Accessor* . (* 修改：使用 Accessor 规则，Accessor 可以有多个 *)
 
 
-(* 
+(*
  * 函数定义 (FunctionDefinition)
  * 函数定义现在是一个 Expression，它返回一个可执行的函数对象。
+ * EasyScript 目前支持匿名函数，通过 `let` 关键字为其赋值。
  *)
-FunctionDefinition ::= "fun" Identifier "(" [ Identifier { "," Identifier } ] ")" 
-                     "{" { Expression ";" } [ Expression ] "}" .
-(* 
+FunctionDefinition ::= "fun" "(" [ Identifier { "," Identifier } ] ")"
+                     Block .
+(*
  * 函数体语义：
- * 1. 函数体是一个表达式块，必须用 {} 包裹。
+ * 1. 函数体是一个表达式块 (Block)，必须用 {} 包裹。
  * 2. 函数的返回值是块中最后一个 Expression 的值。
  *)
 
 
-(* 
+(*
  * 控制流结构：现在都是 Expression
  *)
 
 (* If Expression：else 可选，如果条件不满足且无 else，返回 'nil' *)
-IfExpression     ::= "if" Expression 
-                     "{" { Expression ";" } [ Expression ] "}" (* Then Block *)
-                     [ "else" 
-                       ( IfExpression | "{" { Expression ";" } [ Expression ] "}" ) 
+IfExpression     ::= "if" LogicalOrAndExpression
+                     Block (* Then Block *)
+                     [ "else"
+                       ( IfExpression | Block )
                      ] .
-(* 
+(*
  * If 语义：
  * 1. 返回满足条件分支的表达式块中最后一个 Expression 的值。
  * 2. 如果条件不满足且没有 else，返回 'nil'。
  *)
 
 
-(* For Expression (Collection-Style/List Comprehension): 遍历集合并返回一个新列表 *)
-ForExpression    ::= "for" Identifier "in" Expression 
-                     "{" { Expression ";" } [ Expression ] "}" .
-(* 
- * For 语义 (列表生成)：
- * 1. 每次迭代，收集块中**最后一个 Expression 的值**到一个新的列表中。
- * 2. ForExpression 最终返回这个新列表。
+(* For Expression *)
+ForExpression    ::= "for" ( ForInExpression | ForConditionExpression ) .
+
+ForInExpression  ::= Identifier "in" LogicalOrAndExpression
+                     [ "if" LogicalOrAndExpression ] (* 新增: 可选的 if 条件 *)
+                     Block .
+(*
+ * For-in 语义 (列表生成)：
+ * 1. 遍历列表或映射的键。
+ * 2. 每次迭代，收集块中**最后一个 Expression 的值**到一个新的列表中。
+ * 3. ForInExpression 最终返回这个新列表。
  *)
+
+ForConditionExpression ::= LogicalOrAndExpression (* while 风格循环的条件 *)
+                           Block .
+(*
+ * For-condition 语义 (while 风格循环)：
+ * 1. 只要条件表达式为真 (`truthy`)，循环就会持续执行。
+ * 2. 每次迭代，收集块中**最后一个 Expression 的值**到一个新的列表中。
+ * 3. ForConditionExpression 最终返回这个新列表。
+ *)
+
 
 (*
- * 表达式定义 (3 层优先级结构)
- * 注：AssignmentExpression/IfExpression/ForExpression/FunctionDefinition 已经被提升到顶级 Expression，
- * 这里只保留纯粹的运算优先级结构，我们简化并统一为 TermExpression。
- * 优先级: []/. > [一元负号, 函数调用] > [*/% <<>> &|^] > [+- <><=>===!= && ||]
+ * 表达式定义 (优先级结构)
+ * 优先级从低到高定义。
  *)
 
-(* 1. TermExpression: 最低优先级，处理 [+-, 关系, 逻辑] *)
-TermExpression   ::= FactorExpression { ( "+" | "-"
-                                       | "<" | "<=" | ">" | ">="
-                                       | "==" | "!="
-                                       | "&&" | "||" ) FactorExpression } .
+(* 7. Logical OR/AND Expression (||, &&) - 统一优先级 *)
+LogicalOrAndExpression ::= EqualityComparisonExpression { ( "||" | "&&" ) EqualityComparisonExpression } .
 
-(* 2. FactorExpression: 中等优先级，处理 [*/%, 移位, 位运算] *)
-FactorExpression ::= PrimaryExpression { ( "*" | "/" | "%"
-                                        | "<<" | ">>"
-                                        | "&" | "|" | "^" ) PrimaryExpression } .
+(* 6. Equality and Comparison Expression (==, !=, <, <=, >, >=) *)
+EqualityComparisonExpression ::= BitwiseExpression { ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) BitwiseExpression } .
 
-(* 3. PrimaryExpression: 最高优先级，处理最基础的不可分割元素、索引、一元负号 *)
+(* 5. Bitwise Expression (| , ^ , & , << , >>) *)
+BitwiseExpression ::= AdditiveExpression { ( "|" | "^" | "&" | "<<" | ">>" ) AdditiveExpression } .
+
+(* 4. Additive Expression (+, -) *)
+AdditiveExpression ::= MultiplicativeExpression { ( "+" | "-" ) MultiplicativeExpression } .
+
+(* 3. Multiplicative Expression (*, /, %) *)
+MultiplicativeExpression ::= UnaryExpression { ( "*" | "/" | "%" ) UnaryExpression } .
+
+(* 2. Unary Expression (-, !) *)
+UnaryExpression  ::= ( "-" | "!" ) UnaryExpression
+                   | CallAndAccessExpression .
+
+(* 1. Call and Access Expression ((), [], .) *)
+CallAndAccessExpression ::= PrimaryExpression ( FunctionCallSuffix | Accessor )* .
+
+FunctionCallSuffix ::= "(" [ LogicalOrAndExpression { "," LogicalOrAndExpression } ] ")" .
+
+(* 最基础的不可分割元素 *)
 PrimaryExpression ::= Literal
-                    | FunctionCall (* FunctionCall 是 PrimaryExpression 的一部分 *)
-                    | Identifier { Accessor } (* 修改：使用 Accessor 规则 *)
-                    | [ "-" ] PrimaryExpression               (* 一元负号 *)
-                    | "(" TermExpression ")" .                (* 括号强制提高 TermExpression 的优先级 *)
+                    | Identifier
+                    | "(" LogicalOrAndExpression ")"
+                    | ListLiteral
+                    | MapLiteral
+                    | Block .
 
-(* 新增规则：Accessor 规则。用于列表/字典的索引和属性的点访问。 *)
-Accessor         ::= "[" TermExpression "]"                       (* 索引访问，键可以是表达式 *)
-                   | "." Identifier .                             (* 点访问，键只能是标识符 *)
 
+(* Accessor 规则。用于列表/字典的索引和属性的点访问。 *)
+Accessor         ::= "[" LogicalOrAndExpression "]" (* 索引访问，键可以是表达式 *)
+                   | "." Identifier .            (* 点访问，键只能是标识符 *)
+
+(* 辅助规则：块表达式 *)
+Block            ::= "{" { Expression ";" } [ Expression ] "}" .
 
 (* 辅助规则：字面量 *)
 Literal          ::= Number
@@ -114,22 +146,20 @@ Literal          ::= Number
 
 
 (* 辅助规则：列表字面量 *)
-ListLiteral      ::= "[" [ TermExpression { "," TermExpression } ] "]" .
+ListLiteral      ::= "[" [ LogicalOrAndExpression { "," LogicalOrAndExpression } ] "]" .
 
 (* 辅助规则：Map/Dict 字面量 *)
-MapLiteral       ::= "{" [ TermExpression ":" TermExpression { "," TermExpression ":" TermExpression } ] "}" .
-
-(* 规则：函数调用 *)
-FunctionCall     ::= PrimaryExpression "(" [ TermExpression { "," TermExpression } ] ")" . 
-(* 运行时语义补充：如果 FunctionCall 的调用者是通过 Accessor 规则中的 '.' 访问得来的，
-   解释器将自动注入被访问的对象（即 'self'）作为第一个参数。
-*)
+MapLiteral       ::= "{" [ ( StringLiteral | Number | "true" | "false" ) ":" LogicalOrAndExpression { "," ( StringLiteral | Number | "true" | "false" ) ":" LogicalOrAndExpression } ] "}" .
+(*
+ * 注意: 根据语言运行时规则，Map 的键必须是字符串、数字或布尔值。
+ * 此 EBNF 规则已体现该限制。
+ *)
 
 
 (* --- 终结符 (Terminal Symbols) 列表 --- *)
-(* 
-   Identifier, Number, StringLiteral, ";", "=", "+", "-", "*", "/", "%", 
-   "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==", 
-   "!=", "&&", "||", "(", ")", "[", "]", "true", "false", 
+(*
+   Identifier, Number, StringLiteral, ";", "=", "+", "-", "*", "/", "%",
+   "<<", ">>", "&", "|", "^", "<", "<=", ">", ">=", "==",
+   "!=", "&&", "||", "(", ")", "[", "]", "true", "false",
    "if", "else", "for", "{" , "}" , "fun" , "in" , ":" , "nil", "."
 *)
