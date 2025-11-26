@@ -45,6 +45,7 @@ pub enum Token {
     Greater,      // >
     GreaterEqual, // >=
     EqualEqual,   // ==
+    Bang,         // !
     BangEqual,    // !=
 
     // 逻辑

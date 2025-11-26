@@ -229,11 +229,7 @@ impl<'a> Lexer<'a> {
                 let token = if self.match_char('=') {
                     Token::BangEqual
                 } else {
-                    return self.error(
-                        "Unexpected character '\"'",
-                        token_start_line,
-                        token_start_column,
-                    );
+                    Token::Bang
                 };
                 self.add_token(token);
             }

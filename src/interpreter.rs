@@ -618,6 +618,10 @@ impl Interpreter {
                             })
                         }
                     }
+                    crate::ast::UnaryOperator::Not => {
+                        let is_truthy = right_val.is_truthy();
+                        Ok(Value::boolean(&mut self.heap, !is_truthy))
+                    }
                 }
             }
 

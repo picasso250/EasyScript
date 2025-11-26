@@ -128,6 +128,7 @@ pub enum AccessType {
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub enum UnaryOperator {
     Negate, // - (一元负号)
+    Not,    // ! (逻辑非)
 }
 
 #[derive(Debug, Clone, PartialEq, Copy)]

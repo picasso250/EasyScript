@@ -100,7 +100,7 @@ fn run_test_file(path: PathBuf) {
 
     // An E2E test file must have at least one expectation.
     if expectation.value.is_none() && expectation.stdout.is_none() {
-        panic!("Test file {:?} must have at least one '// expect: ...' or '// expect_stdout: ...' comment.", path);
+        panic!("Test file {:?} must have at least one '# expect: ...' or '# expect_stdout: ...' comment.", path);
     }
 
     // 1. Lexer

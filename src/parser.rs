@@ -212,8 +212,6 @@ impl Parser {
         Ok(expr)
     }
 
-
-
     // LogicalGroupExpression ::= EqualityComparisonGroupExpression { ( "||" | "&&" ) EqualityComparisonGroupExpression }
     fn logical_group(&mut self) -> Result<Expression, EasyScriptError> {
         let mut expr = self.equality_comparison_group()?; // 调用更高优先级的 equality_comparison_group()
@@ -338,6 +336,15 @@ impl Parser {
         if self.match_tokens(&[Token::Minus]) {
             let op = UnaryOperator::Negate;
             let expr = self.unary()?; // Recursive call to unary
+            return Ok(Expression::Unary {
+                op,
+                expr: Box::new(expr),
+            });
+        }
+        if self.match_tokens(&[Token::Bang]) {
+            // Match for '!'
+            let op = UnaryOperator::Not;
+            let expr = self.unary()?; // Recursive call to unary for the operand
             return Ok(Expression::Unary {
                 op,
                 expr: Box::new(expr),
@@ -506,7 +513,6 @@ impl Parser {
             args,
         })
     }
-
 
     fn consume_identifier(&mut self, message: &str) -> Result<String, EasyScriptError> {
         if let Token::Identifier(name) = self.peek() {
