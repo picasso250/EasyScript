@@ -1,4 +1,4 @@
-# EasyScript 垃圾回收 (GC) 设计文档 (第一版)
+# EasyScript 垃圾回收 (GC) 设计文档
 
 **1. 目标**
 *   实现 EasyScript 对象（列表、映射、函数闭包等）的自动内存管理。
@@ -6,7 +6,7 @@
 *   简化程序员对内存生命周期的管理负担。
 
 **2. GC 方案选择：Mark-and-Sweep Stop-the-World**
-*   **选择原因**：对于第一版实现，该算法相对简单直观，易于理解和实现，能有效处理循环引用问题。
+*   **优点**：该算法相对简单直观，易于理解和实现，能有效处理循环引用问题。
 *   **工作原理**：
     *   **标记 (Mark)**：从一组已知“根”对象开始，递归遍历所有可达对象，并对其进行标记。
     *   **清除 (Sweep)**：遍历整个 GC 堆，回收所有未被标记的对象所占用的内存。
@@ -16,7 +16,7 @@
 
 *   **3.1 GC 堆 (GC Heap)**
     *   **目的**：统一管理所有 GC 对象分配的内存。
-    *   **实现**：可能是一个 `Vec<Option<GcObjectHeader>>` 或自定义的内存池。`GcObjectHeader` 包含对象类型信息、标记位等。
+    *   **实现**：当前使用 `Vec<NonNull<GcObjectHeader>>` 来存储所有分配的对象。`GcObjectHeader` 包含对象类型信息、标记位等。
     *   **对象存储**：GC 堆将存储 `Object` 枚举的实例，因为所有 EasyScript 运行时数据都将是 `Object` 的一个变体。
 
 *   **3.1.1 开发者调试选项**
@@ -24,18 +24,18 @@
         *   当 `DEBUG_GC` 被设置为 `1` 时，GC 相关的内存分配和回收操作将在标准错误输出 (`eprintln!`) 中打印详细日志。这对于跟踪对象的生命周期和调试 GC 行为非常有用。
 
 
-*   **3.2 `Gc<T>` 句柄 (Gc Handle)**
+*   **3.2 `GcRef` 句柄 (Gc Handle)**
     *   **目的**：统一作为指向 GC 堆上 `Object` 实例的安全引用。
-    *   **实现**：`Gc<T>` 将主要用作 `Gc<Object>`。它将是一个包装了 GC 堆索引或裸指针的智能指针。它需要实现 `Copy`, `Clone` 等，以便在 EasyScript 代码中方便传递。
-    *   **生命周期**：`Gc<T>` 的生命周期由 GC 机制而非 Rust 编译器管理。
+    *   **实现**：`GcRef` 是一个包装了原始指针的智能指针，主要用作 `GcRef`。它实现 `Copy`, `Clone` 等，以便在 EasyScript 代码中方便传递。
+    *   **生命周期**：`GcRef` 的生命周期由 GC 机制而非 Rust 编译器管理。
 
 *   **3.3 `Value` 类型定义**
     *   **目的**：简化 `Value` 类型，使其统一表示为 GC 管理的堆对象。
-    *   **修改**：`Value` 不再是枚举，而是一个包装 `Gc<Object>` 的结构体。这意味着 EasyScript 中的每一个 `Value` 都是一个指向 GC 堆上 `Object` 实例的句柄。
+    *   **修改**：`Value` 不再是枚举，而是一个包装 `GcRef` 的结构体。这意味着 EasyScript 中的每一个 `Value` 都是一个指向 GC 堆上 `Object` 实例的句柄。
         ```rust
         // src/value.rs
-        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)] // Gc<Object> 应实现这些 Trait
-        pub struct Value(pub Gc<Object>);
+        #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)] // GcRef 应实现这些 Trait
+        pub struct Value(pub GcRef);
         ```
     *   **内部结构**：引入 `Object` 枚举，它将包含 EasyScript 运行时所有可能的数据类型（Number, Boolean, Nil, String, List, Map, Function, BoundMethod 等）。`Object` 的实例将直接存储在 GC 堆上。
 
@@ -43,7 +43,6 @@
     *   **目的**：定义所有 EasyScript 运行时数据的实际存储结构，它们将统一由 GC 管理。
     *   **实现**：
         ```rust
-        // src/gc.rs 或 src/object.rs (此处暂时定义在 src/gc.rs)
         pub enum Object {
             Number(f64),
             Boolean(bool),
@@ -51,16 +50,15 @@
             Nil,
             List(Vec<Value>), // 列表中包含 Value 句柄
             Map(HashMap<Value, Value>), // Map 的键和值都是 Value 句柄
-            Function(FunctionObject), // FunctionObject 封装用户或原生函数
+            Function(FunctionObjectInner), // FunctionObject 封装用户或原生函数
             BoundMethod {
                 receiver: Value, // receiver 也是 Value 句柄
                 method_name: String, // 方法名，用于在 Interpreter 中查找原生函数
-                // method: NativeFunction, // NativeFunction 将在调用时查找
             },
             // ... 其他可能的类型
         }
         ```
-    *   **注意**：`Object` 枚举中的 `List` 和 `Map` 将存储 `Value` 句柄，而 `Value` 又包裹了 `Gc<Object>`，这形成了 GC 对象图中的引用链。
+    *   **注意**：`Object` 枚举中的 `List` 和 `Map` 将存储 `Value` 句柄，而 `Value` 又包裹了 `GcRef`，这形成了 GC 对象图中的引用链。
 
 *   **3.5 `GcTrace` Trait**
     *   **目的**：定义 GC 如何遍历对象图。
@@ -77,7 +75,7 @@
 **4. GC 算法流程 (Mark-and-Sweep)**
 
 *   **4.1 触发 (Trigger)**
-    *   **第一版**：可能通过手动调用 `gc.collect()` 触发，或在每次解释器执行一定数量的表达式后（简单计数器）。
+    *   通过手动调用 `gc_collect()` 全局内置函数触发。
     *   **未来**：基于 GC 堆的内存使用量或对象分配数量自动触发。
 
 *   **4.2 暂停世界 (Stop-the-World)**
@@ -107,10 +105,7 @@
 *   `Gc<T>` 的实现将不可避免地涉及 `unsafe` Rust 代码，用于直接操作内存和裸指针。
 *   将 `unsafe` 隔离在 `Gc<T>` 类型和 GC 堆管理的代码中，最小化其影响范围，并确保其正确性。
 
-**7. 第一版实现 (不求效率，只求功能正确)**
-*   GC 堆可以从简单的 `Vec<Option<Box<dyn GcObject>>>` 开始。
-*   `Gc<T>` 可以是一个简单的 `usize` 索引到 GC 堆的 `Vec`。
-*   Mark-and-Sweep 可以是单次完整遍历。
+
 
 **8. 未来优化方向**
 *   更高效的 GC 堆分配器（例如分代分配）。
