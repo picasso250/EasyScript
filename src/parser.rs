@@ -178,7 +178,7 @@ impl Parser {
 
     // AssignmentExpression ::= LValue "=" Assignment | TermExpression
     fn assignment(&mut self) -> Result<Expression, EasyScriptError> {
-        let expr = self.term()?;
+        let expr = self.logical_group()?;
 
         if self.match_tokens(&[Token::Equal]) {
             // The right-hand side of an assignment can be any Expression.
@@ -212,11 +212,19 @@ impl Parser {
         Ok(expr)
     }
 
-    // TermExpression ::= FactorExpression { ( "+" | "-" | "<" | "<=" | ... ) FactorExpression }
-    fn term(&mut self) -> Result<Expression, EasyScriptError> {
-        let mut expr = self.factor()?;
-        while let Some(op) = self.match_term_op() {
-            let right = self.factor()?;
+
+
+    // LogicalGroupExpression ::= EqualityComparisonGroupExpression { ( "||" | "&&" ) EqualityComparisonGroupExpression }
+    fn logical_group(&mut self) -> Result<Expression, EasyScriptError> {
+        let mut expr = self.equality_comparison_group()?; // 调用更高优先级的 equality_comparison_group()
+
+        while self.match_tokens(&[Token::Or, Token::And]) {
+            let op = match self.previous() {
+                Token::Or => BinaryOperator::Or,
+                Token::And => BinaryOperator::And,
+                _ => unreachable!(), // 应该在 match_tokens 中被处理
+            };
+            let right = self.equality_comparison_group()?; // 再次调用 equality_comparison_group() 来处理右侧操作数
             expr = Expression::Binary {
                 left: Box::new(expr),
                 op,
@@ -226,11 +234,28 @@ impl Parser {
         Ok(expr)
     }
 
-    // FactorExpression ::= UnaryExpression { ( "*" | "/" | "%" | "<<" | ... ) UnaryExpression }
-    fn factor(&mut self) -> Result<Expression, EasyScriptError> {
-        let mut expr = self.unary()?;
-        while let Some(op) = self.match_factor_op() {
-            let right = self.unary()?;
+    // EqualityComparisonGroupExpression ::= BitwiseGroupExpression { ( "==" | "!=" | "<" | "<=" | ">" | ">=" ) BitwiseGroupExpression }
+    fn equality_comparison_group(&mut self) -> Result<Expression, EasyScriptError> {
+        let mut expr = self.bitwise_group()?; // 调用更高优先级的 bitwise_group()
+
+        while self.match_tokens(&[
+            Token::EqualEqual,
+            Token::BangEqual,
+            Token::Less,
+            Token::LessEqual,
+            Token::Greater,
+            Token::GreaterEqual,
+        ]) {
+            let op = match self.previous() {
+                Token::EqualEqual => BinaryOperator::Eq,
+                Token::BangEqual => BinaryOperator::Neq,
+                Token::Less => BinaryOperator::Lt,
+                Token::LessEqual => BinaryOperator::Lte,
+                Token::Greater => BinaryOperator::Gt,
+                Token::GreaterEqual => BinaryOperator::Gte,
+                _ => unreachable!(), // 应该在 match_tokens 中被处理
+            };
+            let right = self.bitwise_group()?; // 再次调用 bitwise_group() 来处理右侧操作数
             expr = Expression::Binary {
                 left: Box::new(expr),
                 op,
@@ -240,7 +265,75 @@ impl Parser {
         Ok(expr)
     }
 
-    // UnaryExpression ::= "-" UnaryExpression | CallAndAccessExpression
+    // BitwiseGroupExpression ::= AdditiveExpression { ( "|" | "^" | "&" | "<<" | ">>" ) AdditiveExpression }
+    fn bitwise_group(&mut self) -> Result<Expression, EasyScriptError> {
+        let mut expr = self.additive()?; // 调用更高优先级的 additive()
+
+        while self.match_tokens(&[
+            Token::Pipe,
+            Token::Caret,
+            Token::Ampersand,
+            Token::ShiftLeft,
+            Token::ShiftRight,
+        ]) {
+            let op = match self.previous() {
+                Token::Pipe => BinaryOperator::BitOr,
+                Token::Caret => BinaryOperator::BitXor,
+                Token::Ampersand => BinaryOperator::BitAnd,
+                Token::ShiftLeft => BinaryOperator::ShL,
+                Token::ShiftRight => BinaryOperator::ShR,
+                _ => unreachable!(), // 应该在 match_tokens 中被处理
+            };
+            let right = self.additive()?; // 再次调用 additive() 来处理右侧操作数
+            expr = Expression::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
+    }
+
+    // AdditiveExpression ::= MultiplicativeExpression { ( "+" | "-" ) MultiplicativeExpression }
+    fn additive(&mut self) -> Result<Expression, EasyScriptError> {
+        let mut expr = self.multiplicative()?; // 调用更高优先级的 multiplicative()
+
+        while self.match_tokens(&[Token::Plus, Token::Minus]) {
+            let op = match self.previous() {
+                Token::Plus => BinaryOperator::Add,
+                Token::Minus => BinaryOperator::Sub,
+                _ => unreachable!(), // 应该在 match_tokens 中被处理
+            };
+            let right = self.multiplicative()?; // 再次调用 multiplicative() 来处理右侧操作数
+            expr = Expression::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
+    }
+
+    // MultiplicativeExpression ::= UnaryExpression { ( "*" | "/" | "%" ) UnaryExpression }
+    fn multiplicative(&mut self) -> Result<Expression, EasyScriptError> {
+        let mut expr = self.unary()?; // 调用更高优先级的 unary()
+
+        while self.match_tokens(&[Token::Star, Token::Slash, Token::Percent]) {
+            let op = match self.previous() {
+                Token::Star => BinaryOperator::Mul,
+                Token::Slash => BinaryOperator::Div,
+                Token::Percent => BinaryOperator::Mod,
+                _ => unreachable!(), // 应该在 match_tokens 中被处理
+            };
+            let right = self.unary()?; // 再次调用 unary() 来处理右侧操作数
+            expr = Expression::Binary {
+                left: Box::new(expr),
+                op,
+                right: Box::new(right),
+            };
+        }
+        Ok(expr)
+    }
     fn unary(&mut self) -> Result<Expression, EasyScriptError> {
         if self.match_tokens(&[Token::Minus]) {
             let op = UnaryOperator::Negate;
@@ -414,43 +507,6 @@ impl Parser {
         })
     }
 
-    fn match_term_op(&mut self) -> Option<BinaryOperator> {
-        let op = match self.peek() {
-            Token::Plus => Some(BinaryOperator::Add),
-            Token::Minus => Some(BinaryOperator::Sub),
-            Token::Less => Some(BinaryOperator::Lt),
-            Token::LessEqual => Some(BinaryOperator::Lte),
-            Token::Greater => Some(BinaryOperator::Gt),
-            Token::GreaterEqual => Some(BinaryOperator::Gte),
-            Token::EqualEqual => Some(BinaryOperator::Eq),
-            Token::BangEqual => Some(BinaryOperator::Neq),
-            Token::And => Some(BinaryOperator::And),
-            Token::Or => Some(BinaryOperator::Or),
-            _ => None,
-        };
-        if op.is_some() {
-            self.advance();
-        }
-        op
-    }
-
-    fn match_factor_op(&mut self) -> Option<BinaryOperator> {
-        let op = match self.peek() {
-            Token::Star => Some(BinaryOperator::Mul),
-            Token::Slash => Some(BinaryOperator::Div),
-            Token::Percent => Some(BinaryOperator::Mod),
-            Token::ShiftLeft => Some(BinaryOperator::ShL),
-            Token::ShiftRight => Some(BinaryOperator::ShR),
-            Token::Ampersand => Some(BinaryOperator::BitAnd),
-            Token::Pipe => Some(BinaryOperator::BitOr),
-            Token::Caret => Some(BinaryOperator::BitXor),
-            _ => None,
-        };
-        if op.is_some() {
-            self.advance();
-        }
-        op
-    }
 
     fn consume_identifier(&mut self, message: &str) -> Result<String, EasyScriptError> {
         if let Token::Identifier(name) = self.peek() {
