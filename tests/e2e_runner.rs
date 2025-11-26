@@ -43,7 +43,9 @@ fn parse_test_file(source: &str) -> (String, Expectation) {
         }
 
         // Check for runtime error expectation comment
-        if let Some((code_part, comment_part)) = current_code_part.split_once("# expect_runtime_error:") {
+        if let Some((code_part, comment_part)) =
+            current_code_part.split_once("# expect_runtime_error:")
+        {
             runtime_error_expectation = Some(comment_part.trim().to_string());
             current_code_part = code_part;
         }
@@ -217,10 +219,7 @@ fn run_test_file(path: PathBuf) {
                     );
                 }
             } else {
-                panic!(
-                    "\nUNEXPECTED Runtime error in {:?}:\n{}",
-                    path, e
-                );
+                panic!("\nUNEXPECTED Runtime error in {:?}:\n{}", path, e);
             }
         }
     }
