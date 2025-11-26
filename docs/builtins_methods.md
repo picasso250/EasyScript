@@ -71,6 +71,25 @@
 - **返回值**: `number`
 - **行为**: 强制执行一次完整的“标记-清除”(Mark-and-Sweep)垃圾回收周期。返回被回收对象的数量。
 
+### `make_map(list_of_pairs)`
+将一个包含键值对列表的列表转换为一个映射。
+- **签名**: `make_map(list_of_pairs)`
+- **返回值**: `map`
+- **行为**:
+  - `list_of_pairs` 必须是一个列表，其中每个元素本身也是一个包含两个元素的列表 `[key, value]`。
+  - `key` 必须是原始类型（字符串、数字或布尔值）。
+  - 如果输入不符合预期，将抛出运行时错误。
+- **示例**:
+  ```easyscript
+  let pairs = [["name", "Alice"], ["age", 30], [true, "active"]];
+  let my_map = make_map(pairs);
+  print(my_map); // {"name": "Alice", "age": 30, true: "active"}
+
+  let data = {"a": 1, "b": 2};
+  let new_map = make_map(for k in data if data[k] > 1 {[k + "_new", data[k] * 10]});
+  print(new_map); // {"b_new": 20}
+  ```
+
 
 ---
 

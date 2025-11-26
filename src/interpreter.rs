@@ -91,6 +91,13 @@ impl Interpreter {
                     FunctionObjectInner::Native(Rc::new(crate::native::gc_collect_fn)),
                 ),
             );
+            global_env.assign(
+                "make_map",
+                Value::function(
+                    &mut interpreter.heap,
+                    FunctionObjectInner::Native(Rc::new(crate::native::make_map_fn)),
+                ),
+            );
         } // The mutable borrow of global_env is dropped here.
 
         interpreter

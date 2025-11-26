@@ -590,6 +590,67 @@ pub fn list_push_fn(
     }
 }
 
+// Native function to create a map from a list of key-value pairs
+pub fn make_map_fn(
+    heap: &mut Heap,
+    _env: &EnvironmentRef,
+    args: Vec<Value>,
+) -> Result<Value, String> {
+    if args.len() != 1 {
+        return Err(format!(
+            "make_map() expected 1 argument (a list of key-value pairs), but got {}",
+            args.len()
+        ));
+    }
+
+    let input_list = match args[0].0.deref() {
+        Object::List(l) => l,
+        _other => {
+            return Err(format!(
+                "make_map() expected a list, but got type '{}'.",
+                args[0].type_of()
+            ));
+        }
+    };
+
+    let mut new_map = HashMap::new();
+    for pair_value in input_list.iter() {
+        let pair_list = match pair_value.0.deref() {
+            Object::List(l) => l,
+            _other => {
+                return Err(format!(
+                    "make_map() expects a list of lists, but found element of type '{}'.",
+                    pair_value.type_of()
+                ));
+            }
+        };
+
+        if pair_list.len() != 2 {
+            return Err(format!(
+                "make_map() expects inner lists to have 2 elements (key, value), but found {} elements.",
+                pair_list.len()
+            ));
+        }
+
+        let key = pair_list[0].clone();
+        let value = pair_list[1].clone();
+
+        match key.type_of() {
+            "string" | "number" | "boolean" => {
+                new_map.insert(key, value);
+            }
+            _ => {
+                return Err(format!(
+                    "make_map() map keys must be primitive types (String, Number, Boolean), but got '{}'.",
+                    key.type_of()
+                ));
+            }
+        }
+    }
+
+    Ok(Value::map(heap, new_map))
+}
+
 // Native GC collection function
 pub fn gc_collect_fn(
     heap: &mut Heap,

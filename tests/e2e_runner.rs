@@ -15,6 +15,7 @@ use std::path::PathBuf;
 struct Expectation {
     value: Option<String>,
     stdout: Option<String>,
+    runtime_error: Option<String>,
 }
 
 // A helper function to parse the test file.
@@ -24,6 +25,7 @@ fn parse_test_file(source: &str) -> (String, Expectation) {
     let mut code_lines = Vec::new();
     let mut value_expectation: Option<String> = None;
     let mut stdout_expectations: Vec<String> = Vec::new();
+    let mut runtime_error_expectation: Option<String> = None; // New field
 
     for line in source.lines() {
         let mut current_code_part = line;
@@ -37,6 +39,12 @@ fn parse_test_file(source: &str) -> (String, Expectation) {
         // Check for stdout expectation comment (can be on the same line or different)
         if let Some((code_part, comment_part)) = current_code_part.split_once("# expect_stdout:") {
             stdout_expectations.push(comment_part.trim().to_string());
+            current_code_part = code_part;
+        }
+
+        // Check for runtime error expectation comment
+        if let Some((code_part, comment_part)) = current_code_part.split_once("# expect_runtime_error:") {
+            runtime_error_expectation = Some(comment_part.trim().to_string());
             current_code_part = code_part;
         }
 
@@ -58,6 +66,7 @@ fn parse_test_file(source: &str) -> (String, Expectation) {
     let expectation = Expectation {
         value: value_expectation,
         stdout: final_stdout_exp,
+        runtime_error: runtime_error_expectation, // Include new field
     };
 
     (code, expectation)
@@ -99,15 +108,34 @@ fn run_test_file(path: PathBuf) {
     let (code, expectation) = parse_test_file(&source);
 
     // An E2E test file must have at least one expectation.
-    if expectation.value.is_none() && expectation.stdout.is_none() {
-        panic!("Test file {:?} must have at least one '# expect: ...' or '# expect_stdout: ...' comment.", path);
+    if expectation.value.is_none()
+        && expectation.stdout.is_none()
+        && expectation.runtime_error.is_none()
+    {
+        panic!(
+            "Test file {:?} must have at least one '# expect: ...', '# expect_stdout: ...' or '# expect_runtime_error: ...' comment.",
+            path
+        );
     }
 
     // 1. Lexer
     let tokens = match Lexer::new(&code).scan_tokens() {
         Ok(t) => t,
         Err(e) => {
-            panic!("\nLexer errors in {:?}:\n{}", path, e);
+            // If we expected a runtime error from Lexer, we check here.
+            if let Some(expected_err_msg) = expectation.runtime_error {
+                if e.to_string().contains(&expected_err_msg) {
+                    println!("   PASS (Lexer Error): {:?}", path.display());
+                    return; // Test passed, as expected error occurred
+                } else {
+                    panic!(
+                        "\nExpected runtime error '{}' but got different Lexer error in {:?}:\n{}",
+                        expected_err_msg, path, e
+                    );
+                }
+            } else {
+                panic!("\nLexer errors in {:?}:\n{}", path, e);
+            }
         }
     };
 
@@ -115,7 +143,20 @@ fn run_test_file(path: PathBuf) {
     let ast = match Parser::new(tokens).parse() {
         Ok(ast) => ast,
         Err(e) => {
-            panic!("\nParser errors in {:?}:\n{}", path, e);
+            // If we expected a runtime error from Parser, we check here.
+            if let Some(expected_err_msg) = expectation.runtime_error {
+                if e.to_string().contains(&expected_err_msg) {
+                    println!("   PASS (Parser Error): {:?}", path.display());
+                    return; // Test passed, as expected error occurred
+                } else {
+                    panic!(
+                        "\nExpected runtime error '{}' but got different Parser error in {:?}:\n{}",
+                        expected_err_msg, path, e
+                    );
+                }
+            } else {
+                panic!("\nParser errors in {:?}:\n{}", path, e);
+            }
         }
     };
 
@@ -137,13 +178,16 @@ fn run_test_file(path: PathBuf) {
     // Process result
     match result {
         Ok(value) => {
+            if let Some(expected_err_msg) = expectation.runtime_error {
+                panic!(
+                    "\nExpected runtime error '{}' but script executed successfully in {:?} with result: {}\nStdout: '{}'",
+                    expected_err_msg, path, value, captured_stdout
+                );
+            }
+
             let actual_value_str = format!("{}", value);
 
             if let Some(expected_value) = expectation.value {
-                println!(
-                    "DEBUG: Comparing actual: {:?}, expected: {:?}",
-                    actual_value_str, expected_value
-                );
                 assert_eq!(
                     actual_value_str, expected_value,
                     "Value expectation mismatch for {:?}!",
@@ -161,10 +205,23 @@ fn run_test_file(path: PathBuf) {
             println!("   PASS: {:?}", path.display());
         }
         Err(e) => {
-            panic!(
-                "\nExpected value '{:?}' and stdout '{:?}' but got runtime error in {:?}:\n{}",
-                expectation.value, expectation.stdout, path, e
-            );
+            if let Some(expected_err_msg) = expectation.runtime_error {
+                // EasyScriptError's Display trait outputs the message prefixed with type and location.
+                // We need to check if the contained message matches.
+                if e.to_string().contains(&expected_err_msg) {
+                    println!("   PASS (Runtime Error): {:?}", path.display());
+                } else {
+                    panic!(
+                        "\nExpected runtime error containing '{}' but got different error in {:?}:\n{}",
+                        expected_err_msg, path, e
+                    );
+                }
+            } else {
+                panic!(
+                    "\nUNEXPECTED Runtime error in {:?}:\n{}",
+                    path, e
+                );
+            }
         }
     }
 }
