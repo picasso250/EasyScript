@@ -200,19 +200,27 @@ for i < 5 {
 ```
 
 #### `for-in` 迭代循环
-用于遍历列表或映射的键。
+用于遍历列表或映射的键，并支持可选的 `if` 过滤条件。
 
 ```easyscript
+# 基本的 for-in 循环
 let myNumbers = [1, 2, 3];
-for (num in myNumbers) {
+for num in myNumbers { # 注意：for num in myNumbers, 没有小括号
     print(num * 2);
 };
 
-let mySettings = {"theme": "dark", "fontSize": 14};
-for (key in mySettings) { // 注意：for-in 遍历 map 时，得到的是 key
-    print(key + ": " + mySettings[key]);
+# 带 if 条件的 for-in 循环
+let filteredNumbers = for num in myNumbers if num > 1 {
+    num * 10
+};
+print(filteredNumbers); // 示例输出: [20, 30]
+
+let mySettings = {"theme": "dark", "fontSize": 14, "darkMode": true};
+for key in mySettings if mySettings[key] == true { // 注意：for-in 遍历 map 时，得到的是 key
+    print("Setting " + key + " is true.");
 };
 ```
+
 
 
 ## 6. 函数 (Functions)

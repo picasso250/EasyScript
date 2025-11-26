@@ -514,6 +514,7 @@ impl Interpreter {
             Expression::ForIn {
                 identifier,
                 iterable,
+                condition, // Destructure the condition
                 body,
             } => {
                 let iterable_val = self.evaluate(iterable)?;
@@ -527,8 +528,23 @@ impl Interpreter {
                                 let mut borrowed_env = loop_env.borrow_mut();
                                 borrowed_env.assign(identifier, element.clone());
                             }
-                            let iteration_result = self.execute_block(body, &loop_env)?;
-                            collected_values.push(iteration_result);
+
+                            // Evaluate the condition (if present) in the loop's environment
+                            let should_execute_body = if let Some(cond_expr) = &condition {
+                                // Temporarily switch interpreter's environment for condition evaluation
+                                let original_env_rc = Rc::clone(&self.environment);
+                                self.environment = Rc::clone(&loop_env);
+                                let cond_val = self.evaluate(cond_expr)?;
+                                self.environment = original_env_rc; // Restore original environment
+                                cond_val.is_truthy()
+                            } else {
+                                true // No condition, so always execute
+                            };
+
+                            if should_execute_body {
+                                let iteration_result = self.execute_block(body, &loop_env)?;
+                                collected_values.push(iteration_result);
+                            }
                         }
                     }
                     Object::Map(map) => {
@@ -539,8 +555,22 @@ impl Interpreter {
                                 let mut borrowed_env = loop_env.borrow_mut();
                                 borrowed_env.assign(identifier, key.clone());
                             }
-                            let iteration_result = self.execute_block(body, &loop_env)?;
-                            collected_values.push(iteration_result);
+
+                            // Evaluate the condition (if present) in the loop's environment
+                            let should_execute_body = if let Some(cond_expr) = &condition {
+                                let original_env_rc = Rc::clone(&self.environment);
+                                self.environment = Rc::clone(&loop_env);
+                                let cond_val = self.evaluate(cond_expr)?;
+                                self.environment = original_env_rc;
+                                cond_val.is_truthy()
+                            } else {
+                                true // No condition, so always execute
+                            };
+
+                            if should_execute_body {
+                                let iteration_result = self.execute_block(body, &loop_env)?;
+                                collected_values.push(iteration_result);
+                            }
                         }
                     }
                     _ => {
@@ -694,7 +724,26 @@ impl Interpreter {
 
             Expression::Binary { left, op, right } => {
                 let left_val = self.evaluate(left)?;
-                let right_val = self.evaluate(right)?;
+                // Short-circuiting for logical operators
+                match op {
+                    BinaryOperator::Or => {
+                        if left_val.is_truthy() {
+                            return Ok(left_val);
+                        }
+                        let right_val = self.evaluate(right)?;
+                        return Ok(right_val);
+                    }
+                    BinaryOperator::And => {
+                        if !left_val.is_truthy() {
+                            return Ok(left_val);
+                        }
+                        let right_val = self.evaluate(right)?;
+                        return Ok(right_val);
+                    }
+                    _ => {}
+                }
+
+                let right_val = self.evaluate(right)?; // Evaluate right_val only if not short-circuited
                 use crate::ast::BinaryOperator;
 
                 match op {
@@ -725,6 +774,7 @@ impl Interpreter {
                                 Ok(Value::number(&mut self.heap, l / r))
                             }
                         }
+                        BinaryOperator::Mod => Ok(Value::number(&mut self.heap, l % r)), // Add Modulo operator
                         BinaryOperator::Lt => Ok(Value::boolean(&mut self.heap, l < r)),
                         BinaryOperator::Lte => Ok(Value::boolean(&mut self.heap, l <= r)),
                         BinaryOperator::Gt => Ok(Value::boolean(&mut self.heap, l > r)),

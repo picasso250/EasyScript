@@ -66,6 +66,7 @@ pub enum Expression {
     ForIn {
         identifier: String,        // for x
         iterable: Box<Expression>, // in collection
+        condition: Option<Box<Expression>>, // 新增: 可选的 if 条件
         body: Block,
     },
 

@@ -89,11 +89,18 @@ impl Parser {
                 "Expect 'in' keyword after loop variable.",
             )?;
             let iterable = Box::new(self.expression()?);
+
+            let mut condition = None;
+            if self.match_tokens(&[Token::KeywordIf]) {
+                condition = Some(Box::new(self.expression()?));
+            }
+
             self.consume(&Token::LeftBrace, "Expect '{' before for loop body.")?;
             let body = self.block()?;
             return Ok(Expression::ForIn {
                 identifier,
                 iterable,
+                condition, // Pass the parsed condition
                 body,
             });
         }
