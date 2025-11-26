@@ -1,24 +1,31 @@
 // main.rs now acts as a consumer of the `easyscript_rs` library
 use easyscript_rs::{Interpreter, Lexer, Parser};
+use std::env; // Added
+use std::fs;   // Added
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    let source = if args.len() == 2 {
+        let file_path = &args[1];
+        match fs::read_to_string(file_path) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("错误: 无法读取文件 '{}': {}", file_path, e);
+                std::process::exit(1);
+            }
+        }
+    } else {
+        eprintln!("用法: {} <文件路径>", args[0]);
+        eprintln!("  例如: {} examples/hello.es", args[0]);
+        std::process::exit(1);
+    };
+
     println!("EasyScript 解释器启动...");
-
-    // Using a simple numeric literal for a clean state
-    let source = r#"
-        let a = 10;
-        let b = a + 20;
-        if b > 25 {
-            b + 5;
-        } else {
-            b - 5;
-        };
-    "#; // 使用一个更复杂的例子来测试
-
     println!("\n--- 源代码 ---\n{}", source);
 
     // 1. 词法分析 (Lexer)
-    let tokens = match Lexer::new(source).scan_tokens() {
+    let tokens = match Lexer::new(&source).scan_tokens() { // Changed to &source
         Ok(t) => t,
         Err(e) => {
             eprintln!("\n--- 词法错误 ---");
