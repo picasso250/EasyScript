@@ -50,7 +50,7 @@ TEST_SCOPE=builtin cargo test
 ```easyscript
 let x = 10; # 这是一个注释
 print("Hello from test!"); # 打印输出
+# expect_stdout: Hello from test!
 x + 5 # 最后一个表达式的值是脚本的返回值
 # expect: 15
-# expect_stdout: Hello from test!
 ```
