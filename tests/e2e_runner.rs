@@ -29,13 +29,13 @@ fn parse_test_file(source: &str) -> (String, Expectation) {
         let mut current_code_part = line;
 
         // Check for value expectation comment
-        if let Some((code_part, comment_part)) = line.split_once("// expect:") {
+        if let Some((code_part, comment_part)) = line.split_once("# expect:") {
             value_expectation = Some(comment_part.trim().to_string());
             current_code_part = code_part;
         }
 
         // Check for stdout expectation comment (can be on the same line or different)
-        if let Some((code_part, comment_part)) = current_code_part.split_once("// expect_stdout:") {
+        if let Some((code_part, comment_part)) = current_code_part.split_once("# expect_stdout:") {
             stdout_expectations.push(comment_part.trim().to_string());
             current_code_part = code_part;
         }
