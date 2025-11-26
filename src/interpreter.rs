@@ -100,10 +100,7 @@ impl Interpreter {
     pub fn run(&mut self, program: &Block) -> Result<Value, EasyScriptError> {
         // 克隆 environment，使其与 self 的可变借用不冲突
         let current_env = Rc::clone(&self.environment);
-        eprintln!(
-            "DEBUG: program.expressions length: {}",
-            program.expressions.len()
-        ); // DEBUG line
+
         self.execute_block(program, &current_env)
     }
 
